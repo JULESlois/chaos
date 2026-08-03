@@ -1,98 +1,79 @@
-import { clamp01, valueNoise2D } from '@/utils/math';
 import { CHARSETS } from '../charset';
-import { FlowField, type FlowParameters } from '../fields/flow-field';
-import type { Vec2 } from '../fields/pointer-field';
-import { GridLayer } from '../layers/grid-layer';
-import { ParticleLayer, type VelocitySource } from '../layers/particle-layer';
+import { FlowRenderer, defaultLayerIntensity, type FlowRenderConfig } from '../flow/flow-renderer';
 import type { AsciiRuntime, AsciiScene, AsciiViewport } from '../types';
 
 /**
  * Screen two — CURRENT.
  *
- * The field starts moving. A free particle population is advected through the
- * combined flow field while a faint grid stays behind it, so the reader sees
- * motion *against* a static reference rather than motion in a vacuum.
- *
- * This is the screen where the pointer first has consequences: the cursor
- * displaces the medium and drags a wake behind it. The response is immediate
- * but incomplete — the field never fully clears around the pointer, and it
- * takes a moment to close again after the pointer leaves.
+ * The old implementation advected a free particle population through a noise
+ * field behind a faint grid: it read as a particle-system demo, not a picture.
+ * This screen is now a composition. A handful of hand-placed Bézier ribbons
+ * decide where every glyph goes; the characters are placed along those curves,
+ * rotated to the tangent, stretched by their speed, and layered by depth. The
+ * result is a still poster — a diagonal band, an off-centre focus, a lot of
+ * deliberate black — that only breathes once the reader is looking.
  */
-export class CurrentScene implements AsciiScene, VelocitySource {
+export class CurrentScene implements AsciiScene {
   readonly id = 'current';
   readonly charset = CHARSETS.current;
 
-  private readonly flow = new FlowField();
-  private readonly particles: ParticleLayer;
-  private readonly grid: GridLayer;
+  /** Fixed seed so the authored composition is the same every visit. */
+  private static readonly SEED = 1204;
 
-  private readonly params: FlowParameters = {
-    time: 0,
-    distortion: 0,
-    scrollVelocity: 0,
-    scrollDirection: 0,
-    scale: 3.4,
-  };
+  private readonly flow: FlowRenderer;
 
-  constructor(particleCapacity: number) {
-    this.particles = new ParticleLayer(particleCapacity, this.charset);
-    this.grid = new GridLayer(
-      (nx, ny, runtime) => this.substrate(nx, ny, runtime),
-      this.charset,
-      0.14,
-    );
-  }
-
-  private substrate(nx: number, ny: number, runtime: AsciiRuntime): number {
-    const t = runtime.time * 0.03;
-    const noise = valueNoise2D(nx * 3 - t, ny * 3 + t);
-    return clamp01((noise - 0.55) * 1.6 * runtime.tension.density);
-  }
-
-  velocity(out: Vec2, nx: number, ny: number, runtime: AsciiRuntime): void {
-    this.flow.sample(out, nx, ny, runtime.pointer, this.params);
+  constructor() {
+    this.flow = new FlowRenderer(this.charset);
   }
 
   enter(runtime: AsciiRuntime): void {
-    this.particles.setActive(this.budgetFor(runtime));
+    this.flow.resize(runtime.view);
   }
 
-  update(runtime: AsciiRuntime): void {
-    const params = this.params;
-    params.time = runtime.time;
-    params.distortion = runtime.tension.flowDistortion;
-    params.scrollVelocity = runtime.experience.scrollVelocity;
-    params.scrollDirection = runtime.experience.scrollDirection;
-    // Turbulence gets finer as the screen progresses, so the current breaks up
-    // rather than simply speeding up.
-    params.scale = 3.4 + runtime.experience.localProgress * 2.6;
-
-    this.particles.setActive(this.budgetFor(runtime));
-    this.particles.update(runtime, this);
+  update(): void {
+    // The flow is fully derived from the frame config in render(); there is no
+    // state to integrate here.
   }
 
   render(runtime: AsciiRuntime): void {
-    this.grid.draw(runtime);
-    this.particles.draw(runtime);
+    const view = runtime.view;
+    const reduced = runtime.reducedMotion;
+
+    const config: FlowRenderConfig = {
+      width: view.width,
+      height: view.height,
+      dpr: view.dpr,
+      // Reduced motion freezes the poster at a stable, legible moment.
+      time: reduced ? 6 : runtime.time,
+      progress: runtime.experience.localProgress,
+      seed: CurrentScene.SEED,
+      quality: runtime.quality,
+      pointer: {
+        x: runtime.pointer.x,
+        y: runtime.pointer.y,
+        active: runtime.pointer.active && !reduced,
+      },
+      scrollVelocity: runtime.experience.scrollVelocity,
+      density: 1,
+      sizeScale: 1,
+      layerIntensity: defaultLayerIntensity(),
+      debug: false,
+      delta: runtime.delta,
+    };
+
+    this.flow.render(runtime.ctx, view, config);
   }
 
   exit(): void {
-    // The particle population is left in place; re-entering the screen should
-    // find the current where it was, not restarted.
+    // The flow population is left in place so re-entering finds the band where
+    // it was, not re-seeded from scratch.
   }
 
   resize(view: AsciiViewport): void {
-    this.particles.resize(view);
-    this.grid.resize(view);
+    this.flow.resize(view);
   }
 
   dispose(): void {
-    this.particles.dispose();
-    this.grid.dispose();
-  }
-
-  /** Two thirds of the frame's budget goes to particles, one third to grid. */
-  private budgetFor(runtime: AsciiRuntime): number {
-    return Math.floor(runtime.budget * 0.66);
+    this.flow.dispose();
   }
 }

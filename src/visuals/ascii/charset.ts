@@ -41,8 +41,8 @@ export function makeCharset(chars: string): Uint8Array {
 export const CHARSETS = {
   /** Almost nothing. Dust, and the suggestion of a grid. */
   void: makeCharset(" .'`,·˙:"),
-  /** Directional marks — the field should look like it is moving. */
-  current: makeCharset(" .·:-~=+*/\\|<>"),
+  /** Soft, directional marks — the band should read as motion, not code. */
+  current: makeCharset(".,'` :;~-_/()[]{}"),
   /** A clean density ramp, so a silhouette reads as a silhouette. */
   form: makeCharset(" .:;+*ctuxzTICO0%&#@"),
   /** Everything, including the blocks. Reserved for the failure screen. */

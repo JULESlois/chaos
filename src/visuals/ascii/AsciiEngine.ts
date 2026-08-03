@@ -139,7 +139,7 @@ export class AsciiEngine {
     const populationScale = this.baseBudget / BUDGETS[0];
     this.scenes = new Map<SceneId, AsciiScene>([
       ['void', new VoidScene()],
-      ['current', new CurrentScene(Math.round(4200 * populationScale))],
+      ['current', new CurrentScene()],
       ['form', new FormScene(Math.round(3600 * populationScale))],
       ['chaos', new ChaosScene(Math.round(3000 * populationScale))],
       ['silence', new SilenceScene()],
@@ -154,6 +154,7 @@ export class AsciiEngine {
       experience: this.store.current,
       tension: this.tension.current,
       events: this.tension.events,
+      reducedMotion: this.reducedMotion,
       painter: this.painter,
       time: 0,
       delta: 0,
