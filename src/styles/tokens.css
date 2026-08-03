@@ -1,0 +1,88 @@
+:root {
+  /* Surfaces */
+  --color-void: #050605;
+  --color-surface: #0a0d0a;
+  --color-panel: #101510;
+  --color-panel-raised: #151b14;
+
+  /* Text */
+  --color-text: #c6d0c2;
+  --color-muted: #667064;
+  --color-dim: #414a40;
+
+  /* Signal */
+  --color-signal: #8bff78;
+  --color-signal-dim: #4f8a46;
+  --color-warning: #ffb454;
+  --color-danger: #e44f4f;
+
+  /* Lines & noise */
+  --color-line: rgb(198 208 194 / 16%);
+  --color-line-strong: rgb(198 208 194 / 32%);
+  --color-noise: rgb(255 255 255 / 4%);
+
+  /* Typography */
+  --font-mono:
+    'IBM Plex Mono', 'JetBrains Mono', 'Cascadia Code', 'SFMono-Regular', Consolas,
+    'Liberation Mono', Menlo, monospace;
+
+  --text-2xs: 0.6875rem;
+  --text-xs: 0.75rem;
+  --text-sm: 0.8125rem;
+  --text-base: 0.9375rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.5rem;
+  --text-2xl: 2rem;
+  --text-3xl: 2.75rem;
+
+  --leading-tight: 1.25;
+  --leading-normal: 1.65;
+
+  /* Spacing */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+  --space-8: 4rem;
+  --space-9: 6rem;
+
+  /* Layout */
+  --measure: 68ch;
+  --shell-max: 1180px;
+  --shell-pad: clamp(1rem, 4vw, 3rem);
+  --header-height: 3rem;
+
+  /* Motion */
+  --ease-out: cubic-bezier(0.2, 0.8, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --duration-fast: 120ms;
+  --duration-normal: 240ms;
+  --duration-slow: 520ms;
+
+  /* Z-index ladder — mirrors the documented layer model */
+  --z-background: 0;
+  --z-ascii: 1;
+  --z-texture: 2;
+  --z-corruption: 3;
+  --z-content: 4;
+  --z-interface: 5;
+
+  /* Runtime value published by ChaosProvider */
+  --entropy: 0.08;
+}
+
+/* Stabilise mode and reduced motion both neutralise ambient animation. */
+:root[data-stabilised='true'] {
+  --entropy: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-fast: 1ms;
+    --duration-normal: 1ms;
+    --duration-slow: 1ms;
+  }
+}
