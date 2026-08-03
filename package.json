@@ -13,7 +13,8 @@
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\"",
     "typecheck": "tsc -b --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "screenshot:flow": "node scripts/screenshot-flow.mjs"
   },
   "dependencies": {
     "@react-three/drei": "^10.0.6",
