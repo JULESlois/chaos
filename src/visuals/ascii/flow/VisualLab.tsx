@@ -114,6 +114,10 @@ export function VisualLab(): React.JSX.Element {
       const ctx = canvas.getContext('2d', { alpha: false });
       if (!ctx) return;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      // The renderer draws over the previous frame and does not clear, so the
+      // lab must wipe to VOID each tick (the engine does this in production).
+      ctx.fillStyle = '#070203';
+      ctx.fillRect(0, 0, width, height);
 
       if (!p.paused) clock += delta;
       const time = p.paused ? p.time : clock;
