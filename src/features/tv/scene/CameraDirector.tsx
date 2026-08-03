@@ -1,12 +1,13 @@
-import { useMemo, useRef, type RefObject } from 'react';
+import { useMemo, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
+import type { LiveValue } from '../types';
 
 interface CameraDirectorProps {
   /** Live scroll progress, written by the scroll driver outside React. */
-  progressRef: RefObject<number>;
-  /** Live entropy, used only for a very small amount of hand-held drift. */
-  entropyRef: RefObject<number>;
+  progressRef: LiveValue<number>;
+  /** Live visual tension, used only for a little hand-held drift. */
+  tensionRef: LiveValue<number>;
   reducedMotion: boolean;
   /** Level 2 devices skip the cinematography and sit at the final framing. */
   staticView: boolean;
@@ -38,7 +39,7 @@ const FOV_BY_STATION = [46, 43, 40, 38];
 
 export function CameraDirector({
   progressRef,
-  entropyRef,
+  tensionRef,
   reducedMotion,
   staticView,
 }: CameraDirectorProps): null {
@@ -76,8 +77,8 @@ export function CameraDirector({
       // Hand-held drift. Amplitude shrinks as the camera settles at the set,
       // so the interaction phase never fights the viewer's aim.
       const settle = 1 - t * 0.75;
-      const entropy = entropyRef.current ?? 0;
-      const amplitude = (0.008 + entropy * 0.02) * settle;
+      const tension = tensionRef.current ?? 0;
+      const amplitude = (0.008 + tension * 0.02) * settle;
       scratchPosition.x += Math.sin(clock.current * 0.61) * amplitude;
       scratchPosition.y += Math.sin(clock.current * 0.43 + 1.7) * amplitude * 0.7;
       scratchPosition.z += Math.sin(clock.current * 0.29 + 0.4) * amplitude * 0.5;

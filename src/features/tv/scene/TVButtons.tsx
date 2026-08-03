@@ -19,6 +19,12 @@ interface PhysicalButtonProps {
   colour: string;
   emissive: string;
   enabled: boolean;
+  /**
+   * Buttons carry no text, so the shape is the label. A reader learns which
+   * is which by pressing them, which is the correct amount of effort for a
+   * set they found at the end of a scroll.
+   */
+  shape: 'round' | 'square';
   onPress: (id: TVButtonId) => void;
 }
 
@@ -28,6 +34,7 @@ function PhysicalButton({
   colour,
   emissive,
   enabled,
+  shape,
   onPress,
 }: PhysicalButtonProps): React.JSX.Element {
   const meshRef = useRef<THREE.Mesh>(null);
@@ -93,12 +100,16 @@ function PhysicalButton({
     <mesh
       ref={meshRef}
       position={[x, BUTTON_Y, BUTTON_Z]}
-      rotation={[Math.PI / 2, 0, 0]}
+      rotation={shape === 'round' ? [Math.PI / 2, 0, 0] : [0, 0, 0]}
       onClick={handleClick}
       onPointerOver={handleOver}
       onPointerOut={handleOut}
     >
-      <cylinderGeometry args={[0.052, 0.056, 0.05, 12]} />
+      {shape === 'round' ? (
+        <cylinderGeometry args={[0.052, 0.056, 0.05, 12]} />
+      ) : (
+        <boxGeometry args={[0.096, 0.096, 0.05]} />
+      )}
       <meshStandardMaterial
         ref={materialRef}
         color={colour}
@@ -114,9 +125,11 @@ function PhysicalButton({
 /**
  * The three physical controls on the cabinet.
  *
- * These are a *duplicate* affordance — every action is also available from
- * the DOM control bar below the canvas, which is the accessible path. The 3D
- * buttons exist for the feel of operating the set, not as the only way in.
+ * This is the entire control surface of the television — there is no DOM bar
+ * under the canvas, no channel list, no labels. Two round buttons sitting
+ * together step the channel; the square one, set apart, is power.
+ *
+ * The order of presses matters somewhere else. Nothing here says so.
  */
 export function TVButtons({
   interactive,
@@ -128,24 +141,27 @@ export function TVButtons({
       <PhysicalButton
         id="prev"
         x={0.18}
-        colour="#2a2f28"
-        emissive="#6f8a6a"
+        shape="round"
+        colour="#2c1f23"
+        emissive="#b75a69"
         enabled={interactive && powered}
         onPress={onPress}
       />
       <PhysicalButton
         id="next"
-        x={0.36}
-        colour="#2a2f28"
-        emissive="#6f8a6a"
+        x={0.32}
+        shape="round"
+        colour="#2c1f23"
+        emissive="#b75a69"
         enabled={interactive && powered}
         onPress={onPress}
       />
       <PhysicalButton
         id="power"
         x={0.56}
-        colour="#32241f"
-        emissive={powered ? '#e44f4f' : '#4a2020'}
+        shape="square"
+        colour="#331a20"
+        emissive={powered ? '#e68a98' : '#4a2028'}
         enabled={interactive}
         onPress={onPress}
       />
@@ -153,7 +169,7 @@ export function TVButtons({
       {/* Power tell-tale: the only light on the cabinet that survives standby. */}
       <mesh position={[0.56, 0.82, 0.306]}>
         <circleGeometry args={[0.014, 8]} />
-        <meshBasicMaterial color={powered ? '#e44f4f' : '#1d1210'} toneMapped={false} />
+        <meshBasicMaterial color={powered ? '#e68a98' : '#1d1013'} toneMapped={false} />
       </mesh>
     </group>
   );

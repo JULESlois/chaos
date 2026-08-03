@@ -6,7 +6,7 @@ uniform sampler2D uTexture;
 uniform float uTime;
 uniform float uCurvature;     // barrel distortion amount
 uniform float uScanline;      // scanline strength
-uniform float uChroma;        // rgb separation, in uv units
+uniform float uDispersion;    // same-hue smear along the scan direction, 0-1
 uniform float uNoise;         // additive grain
 uniform float uTear;          // horizontal desync, event driven
 uniform float uTearY;         // vertical position of the tear band
@@ -15,8 +15,22 @@ uniform float uVignette;      // corner darkening
 uniform float uBrightness;    // master output level, used for power on/off
 uniform float uCollapse;      // 0 = normal, 1 = collapsed to a line
 
+// The single hue this piece is allowed to use, at three points on its ramp.
+// There is no second hue anywhere in the shader: a red/green/blue split would
+// introduce colours the rest of the site does not contain, and one frame of
+// green is enough to break a monochrome image.
+const vec3 PINK_DELAYED = vec3(0.196, 0.063, 0.086);  // #321016
+const vec3 PINK_HIGH    = vec3(1.000, 0.753, 0.788);  // #ffc0c9
+
+/** Maximum smear distance in uv units at full dispersion. */
+const float SMEAR = 0.0022;
+
 float hash(vec2 p) {
   return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+}
+
+float luma(vec3 c) {
+  return dot(c, vec3(0.299, 0.587, 0.114));
 }
 
 // Barrel distortion. Applied first so every later sample inherits it.
@@ -52,11 +66,24 @@ void main() {
     return;
   }
 
-  // Chromatic separation — deliberately tiny.
-  float r = texture2D(uTexture, vec2(uv.x + uChroma, uv.y)).r;
-  float g = texture2D(uTexture, uv).g;
-  float b = texture2D(uTexture, vec2(uv.x - uChroma, uv.y)).b;
-  vec3 colour = vec3(r, g, b);
+  vec3 colour = texture2D(uTexture, uv).rgb;
+
+  // Same-hue dispersion.
+  //
+  // A real tube smears the beam along the scan direction; the phosphor is
+  // still one colour. So instead of separating channels, sample either side,
+  // take the *luminance* difference, and add it back tinted with the dark and
+  // bright ends of the same ramp: the trailing edge lags into dark pink, the
+  // leading edge overshoots into highlight pink. The hue never moves.
+  if (uDispersion > 0.001) {
+    float offset = uDispersion * SMEAR;
+    float here = luma(colour);
+    float delayed = luma(texture2D(uTexture, vec2(uv.x + offset, uv.y)).rgb);
+    float leading = luma(texture2D(uTexture, vec2(uv.x - offset, uv.y)).rgb);
+
+    colour += PINK_DELAYED * max(delayed - here, 0.0) * 1.6;
+    colour += PINK_HIGH * max(leading - here, 0.0) * 0.55;
+  }
 
   // Scanlines.
   float scan = sin(uv.y * 620.0) * 0.5 + 0.5;
@@ -66,9 +93,9 @@ void main() {
   float band = sin((uv.y + uTime * 0.08) * 6.2831);
   colour *= 1.0 + uBand * band * 0.5;
 
-  // Grain.
+  // Grain, tinted to the same hue so noise cannot desaturate the picture.
   float grain = hash(uv * 512.0 + uTime * 60.0) - 0.5;
-  colour += grain * uNoise;
+  colour += grain * uNoise * vec3(1.0, 0.56, 0.62);
 
   // Vignette.
   vec2 centered = uv * 2.0 - 1.0;

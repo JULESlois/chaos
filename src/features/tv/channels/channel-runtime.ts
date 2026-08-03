@@ -45,10 +45,11 @@ export function advanceChannels(options: {
   delta: number;
   phaseElapsed: number;
   baseFps: number;
-  entropy: number;
+  /** Visual tension, 0–1. Channels use it for signal integrity, not text. */
+  tension: number;
   pointer?: { x: number; y: number };
 }): number {
-  const { manager, snapshot, baseFps, entropy, pointer } = options;
+  const { manager, snapshot, baseFps, tension, pointer } = options;
   const delta = Math.min(options.delta, 0.1);
 
   if (!snapshot.powered) {
@@ -57,7 +58,7 @@ export function advanceChannels(options: {
   }
 
   manager.setPaused(false);
-  manager.setEntropy(entropy);
+  manager.setTension(tension);
   if (pointer) manager.setPointer(pointer.x, pointer.y);
   manager.setFpsCap(channelFpsForState(snapshot.state, baseFps));
   manager.step(delta);

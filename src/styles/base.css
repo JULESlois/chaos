@@ -5,72 +5,29 @@
 }
 
 html {
-  background-color: var(--color-void);
+  background-color: var(--void);
   color-scheme: dark;
   -webkit-text-size-adjust: 100%;
 }
 
 body {
   margin: 0;
-  min-height: 100dvh;
-  background-color: var(--color-void);
-  color: var(--color-text);
+  background-color: var(--void);
+  color: var(--text);
   font-family: var(--font-mono);
   font-size: var(--text-base);
   line-height: var(--leading-normal);
   font-synthesis-weight: none;
-  text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
 }
 
-h1,
-h2,
-h3,
-h4 {
-  margin: 0;
-  font-weight: 500;
-  line-height: var(--leading-tight);
-  letter-spacing: 0.02em;
-}
-
-h1 {
-  font-size: var(--text-2xl);
-}
-h2 {
-  font-size: var(--text-xl);
-}
-h3 {
-  font-size: var(--text-lg);
-}
-
 p {
-  margin: 0 0 var(--space-4);
-  max-width: var(--measure);
-}
-
-p:last-child {
-  margin-bottom: 0;
-}
-
-ul,
-ol {
   margin: 0;
-  padding: 0;
-  list-style: none;
 }
 
-a {
-  color: var(--color-text);
-  text-decoration: none;
-  text-underline-offset: 0.25em;
-  transition: color var(--duration-fast) var(--ease-out);
-}
-
-a:hover {
-  color: var(--color-signal);
-  text-decoration: underline;
-  text-decoration-color: var(--color-signal-dim);
+canvas {
+  display: block;
 }
 
 button {
@@ -82,77 +39,37 @@ button {
   cursor: pointer;
 }
 
-input,
-textarea,
-select {
-  font: inherit;
-  color: inherit;
-}
-
-hr {
-  border: none;
-  border-top: 1px solid var(--color-line);
-  margin: var(--space-6) 0;
-}
-
-code,
-pre {
-  font-family: var(--font-mono);
-  font-size: 0.9em;
-}
-
-pre {
-  margin: 0;
-  overflow-x: auto;
-}
-
-img,
-canvas,
-svg {
-  display: block;
-  max-width: 100%;
-}
-
-/* Focus: always visible, never colour-only. */
 :focus-visible {
-  outline: 2px solid var(--color-signal);
+  outline: 1px solid var(--pink-main);
   outline-offset: 2px;
-  border-radius: 1px;
 }
 
-/* Only remove the default ring where we provide our own visible treatment. */
 :focus:not(:focus-visible) {
   outline: none;
 }
 
 ::selection {
-  background-color: var(--color-signal-dim);
-  color: var(--color-void);
+  background-color: var(--pink-low);
+  color: var(--pink-white);
 }
 
-/* Scrollbar — subtle, still visible. */
 * {
   scrollbar-width: thin;
-  scrollbar-color: var(--color-dim) transparent;
+  scrollbar-color: var(--pink-dark) transparent;
 }
 
 *::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 8px;
 }
 
 *::-webkit-scrollbar-track {
-  background: var(--color-void);
+  background: var(--void);
 }
 
 *::-webkit-scrollbar-thumb {
-  background: var(--color-dim);
-  border: 3px solid var(--color-void);
-  border-radius: 6px;
-}
-
-*::-webkit-scrollbar-thumb:hover {
-  background: var(--color-muted);
+  background: var(--pink-dark);
+  border: 2px solid var(--void);
+  border-radius: 4px;
 }
 
 .visually-hidden {
@@ -165,21 +82,4 @@ svg {
   clip-path: inset(50%);
   white-space: nowrap;
   border: 0;
-}
-
-.skip-link {
-  position: absolute;
-  top: var(--space-2);
-  left: var(--space-2);
-  z-index: 100;
-  padding: var(--space-2) var(--space-4);
-  background-color: var(--color-panel-raised);
-  border: 1px solid var(--color-signal);
-  color: var(--color-signal);
-  transform: translateY(-200%);
-  transition: transform var(--duration-fast) var(--ease-out);
-}
-
-.skip-link:focus {
-  transform: translateY(0);
 }

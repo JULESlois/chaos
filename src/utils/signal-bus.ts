@@ -1,4 +1,4 @@
-import type { ChaosEventId, SignalState } from '@/systems/chaos/types';
+import type { TensionEventId } from '@/systems/tension/tension-events';
 
 /**
  * Strongly-typed global event bus.
@@ -15,18 +15,12 @@ export interface SignalEventMap {
   'tv:channel': { id: string; index: number };
   /** TV power state changed. */
   'tv:power': { on: boolean };
-  /** Chaos director fired an anomaly. */
-  'chaos:event': { id: ChaosEventId; magnitude: 'micro' | 'medium' | 'major' };
-  /** Global signal state transition. */
-  'chaos:state': { state: SignalState; entropy: number };
-  /** Stabilise mode toggled. */
-  'system:stabilise': { enabled: boolean };
+  /** A structural failure crossed into its audible range. */
+  'tension:event': { id: TensionEventId; strength: number };
   /** Audio enabled state toggled. */
   'system:audio': { enabled: boolean };
   /** A one-shot sound request. */
   'audio:play': { cue: string };
-  /** Console requests navigation. */
-  'console:navigate': { path: string };
   /** Hidden narrative progression. */
   'narrative:unlock': { key: string };
 }

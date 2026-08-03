@@ -57,11 +57,11 @@ export class ChannelManager {
       height: options.height,
       elapsed: 0,
       pointer: { x: 0.5, y: 0.5 },
-      entropy: 0.08,
+      tension: 0.08,
     };
 
     // Paint the background immediately so the texture is never transparent.
-    this.ctx.fillStyle = '#080b08';
+    this.ctx.fillStyle = '#130608';
     this.ctx.fillRect(0, 0, options.width, options.height);
   }
 
@@ -91,8 +91,28 @@ export class ChannelManager {
     this.context.pointer.y = y;
   }
 
-  setEntropy(value: number): void {
-    this.context.entropy = value;
+  setTension(value: number): void {
+    this.context.tension = value;
+  }
+
+  /**
+   * Forwards a click on the glass to the active channel.
+   *
+   * `u`/`v` arrive as screen-surface UVs from the Three.js raycast; the
+   * manager is the only place that knows the canvas resolution, so it does
+   * the conversion. Returns true when the channel consumed the hit.
+   */
+  hit(u: number, v: number): boolean {
+    const channel = this.activeChannel;
+    if (!channel?.hit || this.failed.has(channel.id)) return false;
+    const x = u * this.context.width;
+    const y = v * this.context.height;
+    let consumed = false;
+    this.safely(channel, 'hit', () => {
+      consumed = channel.hit!(x, y, this.context) === true;
+    });
+    if (consumed) this.dirty = true;
+    return consumed;
   }
 
   /** Global frame-rate cap applied on top of each channel's own fps. */
@@ -202,9 +222,9 @@ export class ChannelManager {
         0,
         height / 2 + lineHeight / 2,
       );
-      gradient.addColorStop(0, 'rgba(198, 208, 194, 0)');
-      gradient.addColorStop(0.5, `rgba(230, 240, 228, ${alpha.toFixed(3)})`);
-      gradient.addColorStop(1, 'rgba(198, 208, 194, 0)');
+      gradient.addColorStop(0, 'rgba(230, 138, 152, 0)');
+      gradient.addColorStop(0.5, `rgba(255, 226, 230, ${alpha.toFixed(3)})`);
+      gradient.addColorStop(1, 'rgba(230, 138, 152, 0)');
       ctx.fillStyle = gradient;
 
       const widthScale = progress > 0.6 ? 1 - (progress - 0.6) / 0.4 : 1;
@@ -220,13 +240,15 @@ export class ChannelManager {
     const { ctx } = this;
     const { width, height } = this.context;
 
-    ctx.fillStyle = '#0b0d0b';
+    ctx.fillStyle = '#130608';
     ctx.fillRect(0, 0, width, height);
 
     const count = Math.floor(width * height * 0.06 * intensity);
     for (let i = 0; i < count; i += 1) {
-      const value = 30 + Math.random() * 170;
-      ctx.fillStyle = `rgba(${value}, ${value + 5}, ${value}, 0.85)`;
+      // Snow is monochrome pink, not grey: the green and blue components
+      // are fixed fractions of the red one, so the hue cannot drift.
+      const value = 40 + Math.random() * 200;
+      ctx.fillStyle = `rgba(${value}, ${(value * 0.56) | 0}, ${(value * 0.62) | 0}, 0.85)`;
       ctx.fillRect(Math.random() * width, Math.random() * height, 2, 2);
     }
     this.dirty = true;
@@ -290,7 +312,7 @@ export class ChannelManager {
     ctx.fillRect(0, 0, width, height);
     ctx.drawImage(this.scratch, 0, 0, width, height, 0, y, width, remaining);
 
-    ctx.fillStyle = `rgba(230, 240, 228, ${(progress * 0.8).toFixed(3)})`;
+    ctx.fillStyle = `rgba(255, 226, 230, ${(progress * 0.8).toFixed(3)})`;
     ctx.fillRect(0, height / 2 - 1, width, 2);
     this.dirty = true;
   }
@@ -302,9 +324,9 @@ export class ChannelManager {
       console.error(`[channel:${channel.id}] ${phase} failed`, error);
       this.failed.add(channel.id);
       // Isolate the failure: paint an explicit error frame, keep others alive.
-      this.ctx.fillStyle = '#080b08';
+      this.ctx.fillStyle = '#130608';
       this.ctx.fillRect(0, 0, this.context.width, this.context.height);
-      this.ctx.fillStyle = '#e44f4f';
+      this.ctx.fillStyle = '#e68a98';
       this.ctx.font = '10px monospace';
       this.ctx.textBaseline = 'top';
       this.ctx.fillText(`CHANNEL FAULT: ${channel.id}`, 8, 8);

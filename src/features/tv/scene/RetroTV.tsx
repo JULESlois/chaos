@@ -10,7 +10,7 @@ interface RetroTVProps {
   quality: ScreenQuality;
   powered: boolean;
   transitionPhase: TransitionPhase;
-  entropy: number;
+  tension: number;
   tearImpulse: number;
   reducedMotion: boolean;
   interactive: boolean;
@@ -30,32 +30,34 @@ export function RetroTV({
   quality,
   powered,
   transitionPhase,
-  entropy,
+  tension,
   tearImpulse,
   reducedMotion,
   interactive,
   castShadows,
   onPress,
 }: RetroTVProps): React.JSX.Element {
+  // Every surface sits on the same hue as the rest of the site, just far
+  // enough down the ramp to read as unlit plastic rather than as pink.
   const materials = useMemo(() => {
     return {
       cabinet: new THREE.MeshStandardMaterial({
-        color: '#1a1d18',
+        color: '#1c1316',
         roughness: 0.86,
         metalness: 0.04,
       }),
       dark: new THREE.MeshStandardMaterial({
-        color: '#0d100c',
+        color: '#0d0709',
         roughness: 0.94,
         metalness: 0.02,
       }),
       metal: new THREE.MeshStandardMaterial({
-        color: '#3b423a',
+        color: '#43353a',
         roughness: 0.42,
         metalness: 0.68,
       }),
       furniture: new THREE.MeshStandardMaterial({
-        color: '#14161a',
+        color: '#171013',
         roughness: 0.9,
         metalness: 0.03,
       }),
@@ -93,9 +95,10 @@ export function RetroTV({
           quality={quality}
           powered={powered}
           transitionPhase={transitionPhase}
-          entropy={entropy}
+          tension={tension}
           tearImpulse={tearImpulse}
           reducedMotion={reducedMotion}
+          interactive={interactive}
         />
       </group>
 

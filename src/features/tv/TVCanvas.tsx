@@ -1,4 +1,4 @@
-import { useCallback, useState, type RefObject } from 'react';
+import { useCallback, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { PerformanceMonitor } from '@react-three/drei';
 import type { ChannelManager } from './channels/ChannelManager';
@@ -9,7 +9,7 @@ import { SceneRuntime } from './scene/SceneRuntime';
 import { SignalRoom } from './scene/SignalRoom';
 import { SCREEN_QUALITY } from './scene/TVScreen';
 import { isInteractive } from './state/tv-machine';
-import type { TVButtonId, TVSnapshot } from './types';
+import type { LiveValue, TVButtonId, TVSnapshot } from './types';
 
 interface TVCanvasProps {
   manager: ChannelManager;
@@ -21,10 +21,10 @@ interface TVCanvasProps {
   reducedMotion: boolean;
   /** Level 2 devices hold the final camera framing instead of animating it. */
   staticView: boolean;
-  progressRef: RefObject<number>;
-  entropyRef: RefObject<number>;
-  pointerRef: RefObject<{ x: number; y: number }>;
-  /** Bumped by the chaos director's horizontal-tear anomaly. */
+  progressRef: LiveValue<number>;
+  /** Live visual tension, written outside React by the tension controller. */
+  tensionRef: LiveValue<number>;
+  /** Bumped by the tension controller's horizontal-tear event. */
   tearImpulse: number;
   active: boolean;
   onPress: (id: TVButtonId) => void;
@@ -40,8 +40,7 @@ export function TVCanvas({
   reducedMotion,
   staticView,
   progressRef,
-  entropyRef,
-  pointerRef,
+  tensionRef,
   tearImpulse,
   active,
   onPress,
@@ -54,7 +53,7 @@ export function TVCanvas({
   // television rather than leaving a black rectangle on the page.
   const handleCreated = useCallback(
     ({ gl }: { gl: { domElement: HTMLCanvasElement; setClearColor: (c: string) => void } }) => {
-      gl.setClearColor('#05060a');
+      gl.setClearColor('#070203');
       gl.domElement.addEventListener(
         'webglcontextlost',
         (event) => {
@@ -105,7 +104,7 @@ export function TVCanvas({
         quality={SCREEN_QUALITY[quality]}
         powered={snapshot.powered}
         transitionPhase={snapshot.transitionPhase}
-        entropy={entropyRef.current ?? 0}
+        tension={tensionRef.current ?? 0}
         tearImpulse={tearImpulse}
         reducedMotion={reducedMotion}
         interactive={isInteractive(snapshot.state) || staticView}
@@ -115,7 +114,7 @@ export function TVCanvas({
 
       <CameraDirector
         progressRef={progressRef}
-        entropyRef={entropyRef}
+        tensionRef={tensionRef}
         reducedMotion={reducedMotion}
         staticView={staticView}
       />
@@ -124,8 +123,7 @@ export function TVCanvas({
         manager={manager}
         snapshot={snapshot}
         baseFps={baseFps}
-        entropyRef={entropyRef}
-        pointerRef={pointerRef}
+        tensionRef={tensionRef}
       />
     </Canvas>
   );

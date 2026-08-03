@@ -1,25 +1,40 @@
+/* ── Monochrome pink-red system ────────────────────────────────
+   Every colour in the project comes from this ladder. The hue stays
+   inside 350°–356°; only lightness and chroma move. There is no green,
+   no orange, no blue, and no RGB channel separation anywhere — the CRT
+   "dispersion" is a same-hue luminance offset instead.
+
+   Anything that needs to read as "brighter" moves up the ladder.
+   Anything that needs to read as "further away" moves down it. */
+
 :root {
-  /* Surfaces */
-  --color-void: #050605;
-  --color-surface: #0a0d0a;
-  --color-panel: #101510;
-  --color-panel-raised: #151b14;
+  --void: #070203;
+  --void-soft: #130608;
+  --pink-dark: #321016;
+  --pink-low: #6b2933;
+  --pink-mid: #b75a69;
+  --pink-main: #e68a98;
+  --pink-high: #ffc0c9;
+  --pink-white: #ffe2e6;
 
-  /* Text */
-  --color-text: #c6d0c2;
-  --color-muted: #667064;
-  --color-dim: #414a40;
+  /* Same ladder as raw components, for rgb()/rgba() composition in
+     gradients and shadows where a colour needs an alpha channel. */
+  --void-rgb: 7 2 3;
+  --pink-dark-rgb: 50 16 22;
+  --pink-low-rgb: 107 41 51;
+  --pink-mid-rgb: 183 90 105;
+  --pink-main-rgb: 230 138 152;
+  --pink-high-rgb: 255 192 201;
 
-  /* Signal */
-  --color-signal: #8bff78;
-  --color-signal-dim: #4f8a46;
-  --color-warning: #ffb454;
-  --color-danger: #e44f4f;
-
-  /* Lines & noise */
-  --color-line: rgb(198 208 194 / 16%);
-  --color-line-strong: rgb(198 208 194 / 32%);
-  --color-noise: rgb(255 255 255 / 4%);
+  /* Semantic aliases — these are the names the components use, so the
+     ladder can be retuned in one place. */
+  --surface: var(--void);
+  --surface-soft: var(--void-soft);
+  --line: rgb(var(--pink-low-rgb) / 28%);
+  --line-strong: rgb(var(--pink-mid-rgb) / 42%);
+  --text: var(--pink-main);
+  --text-dim: var(--pink-low);
+  --text-bright: var(--pink-high);
 
   /* Typography */
   --font-mono:
@@ -30,59 +45,28 @@
   --text-xs: 0.75rem;
   --text-sm: 0.8125rem;
   --text-base: 0.9375rem;
-  --text-lg: 1.125rem;
-  --text-xl: 1.5rem;
-  --text-2xl: 2rem;
-  --text-3xl: 2.75rem;
 
-  --leading-tight: 1.25;
   --leading-normal: 1.65;
-
-  /* Spacing */
-  --space-1: 0.25rem;
-  --space-2: 0.5rem;
-  --space-3: 0.75rem;
-  --space-4: 1rem;
-  --space-5: 1.5rem;
-  --space-6: 2rem;
-  --space-7: 3rem;
-  --space-8: 4rem;
-  --space-9: 6rem;
-
-  /* Layout */
-  --measure: 68ch;
-  --shell-max: 1180px;
-  --shell-pad: clamp(1rem, 4vw, 3rem);
-  --header-height: 3rem;
 
   /* Motion */
   --ease-out: cubic-bezier(0.2, 0.8, 0.3, 1);
-  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
   --duration-fast: 120ms;
   --duration-normal: 240ms;
-  --duration-slow: 520ms;
 
-  /* Z-index ladder — mirrors the documented layer model */
-  --z-background: 0;
-  --z-ascii: 1;
-  --z-texture: 2;
-  --z-corruption: 3;
-  --z-content: 4;
-  --z-interface: 5;
+  /* Layer ladder — the stage is behind everything, the television sits
+     above it, and nothing else competes for z-index. */
+  --z-stage: 0;
+  --z-television: 1;
+  --z-veil: 2;
 
-  /* Runtime value published by ChaosProvider */
-  --entropy: 0.08;
-}
-
-/* Stabilise mode and reduced motion both neutralise ambient animation. */
-:root[data-stabilised='true'] {
-  --entropy: 0;
+  /* Published every ~10 frames by the tension controller. Used only for
+     slow CSS ambience; nothing per-frame reads it. */
+  --tension: 0;
 }
 
 @media (prefers-reduced-motion: reduce) {
   :root {
     --duration-fast: 1ms;
     --duration-normal: 1ms;
-    --duration-slow: 1ms;
   }
 }

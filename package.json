@@ -1,9 +1,9 @@
 {
-  "name": "node-07-archive",
+  "name": "chaos",
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "NODE 07 — a personal digital archive terminal degraded by an anomalous signal.",
+  "description": "CHAOS — a single-page ASCII visual-flow piece about order failing under load.",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
@@ -18,10 +18,8 @@
   "dependencies": {
     "@react-three/drei": "^10.0.6",
     "@react-three/fiber": "^9.1.2",
-    "motion": "^12.6.3",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
-    "react-router-dom": "^7.5.0",
     "three": "^0.175.0"
   },
   "devDependencies": {

@@ -1,0 +1,89 @@
+/* ── The page ──────────────────────────────────────────────────
+   Three rules do almost all the layout work here, because there is almost
+   no layout: one fixed canvas, one tall empty column, one fixed television.
+   Anything more would be a page, and this is not one. */
+
+.stage {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: var(--z-stage);
+  background-color: var(--void);
+  /* The field is scenery. Every pointer event belongs to the document
+     underneath it, or to the television on top of it. */
+  pointer-events: none;
+}
+
+.experience {
+  position: relative;
+  z-index: var(--z-stage);
+  margin: 0;
+  /* Height comes from the phase table via an inline style — see
+     ChaosExperience. Declaring it here as well would create a second
+     source of truth for the length of the work. */
+}
+
+.timeline {
+  display: block;
+}
+
+.timeline__phase {
+  display: block;
+  /* Deliberately empty. These sections exist to be scrolled past. */
+}
+
+/* ── The television ────────────────────────────────────────────
+   Fixed rather than pinned inside a section: the set has to be able to
+   fade in while the silence screen is still running, and a sticky element
+   inside the timeline would be clipped by its own phase. */
+
+.television {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-television);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity 900ms var(--ease-out),
+    visibility 0s linear 900ms;
+}
+
+.television[data-active='true'] {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition:
+    opacity 1400ms var(--ease-out),
+    visibility 0s;
+}
+
+/* The measured rectangle the ASCII field converges onto. It is where the
+   picture ends up in the final camera framing — never painted, only read.
+   Kept as an element rather than a constant so the 2D field and the 3D
+   camera cannot drift apart when the framing is retuned. */
+.television__target {
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  width: min(52vw, 68vh);
+  aspect-ratio: 4 / 3;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  visibility: hidden;
+}
+
+.tv-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .television,
+  .television[data-active='true'] {
+    transition: none;
+  }
+}

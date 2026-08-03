@@ -6,10 +6,12 @@ export interface ChannelContext {
   /** Seconds since this channel was entered. */
   elapsed: number;
   pointer: {
+    /** Normalised position on the screen surface, or -1 when off-screen. */
     x: number;
     y: number;
   };
-  entropy: number;
+  /** Visual tension, 0–1, forwarded from the tension controller. */
+  tension: number;
 }
 
 export interface TVChannel {
@@ -22,17 +24,31 @@ export interface TVChannel {
   update(context: ChannelContext, delta: number): void;
   render(context: ChannelContext): void;
   exit(context: ChannelContext): void;
+
+  /**
+   * Optional click handling, in canvas pixels.
+   *
+   * This is how the contact channel opens links: the reader clicks the glass,
+   * the screen mesh converts the hit into a UV, and the channel decides
+   * whether anything was there. There are no DOM buttons over the television —
+   * a floating anchor tag would break the illusion that the screen is an
+   * object in a room rather than a picture of one.
+   */
+  hit?(x: number, y: number, context: ChannelContext): boolean;
 }
 
-/** Shared palette so all channels read as the same broadcast system. */
+/**
+ * Shared palette so every channel reads as the same broadcast system.
+ * Mirrors the pink ladder in `src/styles/tokens.css`.
+ */
 export const CHANNEL_PALETTE = {
-  background: '#080b08',
-  dim: '#2c3a2b',
-  mid: '#6f8a6a',
-  text: '#c6d0c2',
-  signal: '#8bff78',
-  warning: '#ffb454',
-  danger: '#e44f4f',
+  background: '#130608',
+  dim: '#321016',
+  low: '#6b2933',
+  mid: '#b75a69',
+  text: '#e68a98',
+  bright: '#ffc0c9',
+  white: '#ffe2e6',
 } as const;
 
 /** Monospace metrics used by the text-drawing channels. */
@@ -74,4 +90,17 @@ export function drawText(
 ): void {
   ctx.fillStyle = colour;
   ctx.fillText(text, 8 + column * 6, 10 + row * CHANNEL_FONT.lineHeight);
+}
+
+/** Pixel bounds of a text row, used for click targets. */
+export function rowBounds(
+  row: number,
+  width: number,
+): { x: number; y: number; width: number; height: number } {
+  return {
+    x: 4,
+    y: 4 + row * CHANNEL_FONT.lineHeight,
+    width: width - 8,
+    height: CHANNEL_FONT.lineHeight,
+  };
 }

@@ -1,5 +1,4 @@
 import { createContext, useContext, useEffect, useMemo, useRef, type ReactNode } from 'react';
-import { useChaos } from '@/systems/chaos/ChaosProvider';
 import { useSystem } from '@/systems/telemetry/SystemProvider';
 import { signalBus } from '@/utils/signal-bus';
 import { AudioEngine, type AudioCue } from './audio-engine';
@@ -15,24 +14,21 @@ const AudioReactContext = createContext<AudioContextValue | null>(null);
 
 /**
  * Owns the AudioEngine lifecycle and enforces the global audio rules:
- * off by default, silenced by stabilise mode, suspended when the tab hides.
+ * off until the reader asks for it, suspended when the tab hides.
  */
 export function AudioProvider({ children }: { children: ReactNode }): React.JSX.Element {
   const { audioEnabled } = useSystem();
-  const { stabilised } = useChaos();
   const engineRef = useRef<AudioEngine | null>(null);
 
   if (engineRef.current === null && typeof window !== 'undefined') {
     engineRef.current = new AudioEngine();
   }
 
-  const effectiveEnabled = audioEnabled && !stabilised;
-
   useEffect(() => {
     const engine = engineRef.current;
     if (!engine) return;
-    void engine.setEnabled(effectiveEnabled);
-  }, [effectiveEnabled]);
+    void engine.setEnabled(audioEnabled);
+  }, [audioEnabled]);
 
   useEffect(() => {
     const engine = engineRef.current;
@@ -55,7 +51,7 @@ export function AudioProvider({ children }: { children: ReactNode }): React.JSX.
     };
   }, []);
 
-  // Allow non-React systems (TV scene, chaos director) to request sounds.
+  // Allow non-React systems (TV scene, tension controller) to request sounds.
   useEffect(() => {
     return signalBus.on('audio:play', ({ cue }) => {
       engineRef.current?.play(cue as AudioCue);
@@ -64,12 +60,12 @@ export function AudioProvider({ children }: { children: ReactNode }): React.JSX.
 
   const value = useMemo<AudioContextValue>(
     () => ({
-      enabled: effectiveEnabled,
+      enabled: audioEnabled,
       play: (cue) => engineRef.current?.play(cue),
       startHum: () => engineRef.current?.startHum(),
       stopHum: () => engineRef.current?.stopHum(),
     }),
-    [effectiveEnabled],
+    [audioEnabled],
   );
 
   return (

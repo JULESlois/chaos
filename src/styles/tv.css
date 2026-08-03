@@ -1,187 +1,46 @@
-/* ── Television chapter ─────────────────────────────────────────
-   The section is tall; the stage inside it is pinned. Scroll distance
-   through the tall section is what the camera director reads as progress.
-   Devices without the cinematography collapse the section to one screen. */
+/* ── The DOM television ────────────────────────────────────────
+   The fallback cabinet, for devices with no usable WebGL context and for
+   contexts that die mid-visit. It draws the same ChannelManager canvas as
+   the 3D set, so every channel — including the one that is not listed — is
+   reachable here.
 
-.tv-section {
-  position: relative;
-  z-index: var(--z-content);
-  margin-block: var(--space-8);
-}
+   There is no control bar, no channel list, no progress readout and no
+   caption. Three keys, no text: two round ones that move through the
+   channels and a square one that cuts the power. The names exist only for
+   assistive technology, which cannot see the shapes that would otherwise
+   carry the distinction.
 
-.tv-section[data-mode='scroll'] {
-  height: 320vh;
-}
+   The layer itself (.television), its fade, and the measured target rect
+   live in experience.css — this file styles nothing but the cabinet. */
 
-.tv-section__pin {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  padding-block: var(--space-4);
-}
-
-.tv-section[data-mode='scroll'] .tv-section__pin {
-  position: sticky;
-  top: 0;
-  height: 100vh;
-}
-
-.tv-section__intro {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: var(--space-3);
-}
-
-.tv-section__caption {
-  color: var(--color-muted);
-  font-size: var(--text-xs);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.tv-section[data-state='aligning'] .tv-section__caption,
-.tv-section[data-state='interactive'] .tv-section__caption {
-  color: var(--color-signal-dim);
-}
-
-/* ── Stage ─────────────────────────────────────────────────── */
-
-.tv-stage {
-  position: relative;
-  flex: 1 1 auto;
-  min-height: 46vh;
-  overflow: hidden;
-  border: 1px solid var(--color-line);
-  background:
-    radial-gradient(
-      120% 90% at 50% 40%,
-      rgb(20 26 20 / 55%) 0%,
-      rgb(5 6 10 / 100%) 70%
-    ),
-    var(--color-void);
-  touch-action: pan-y;
-}
-
-.tv-stage canvas.tv-canvas {
-  display: block;
-  width: 100% !important;
-  height: 100% !important;
-}
-
-.tv-stage__placeholder {
+.dom-tv {
   position: absolute;
   inset: 0;
   display: grid;
   place-items: center;
-  font-size: var(--text-xs);
-  letter-spacing: 0.1em;
-}
-
-.tv-stage__progress {
-  position: absolute;
-  bottom: var(--space-2);
-  left: var(--space-3);
-  margin: 0;
-  color: var(--color-dim);
-  font-size: var(--text-2xs);
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  pointer-events: none;
-}
-
-/* ── Controls ──────────────────────────────────────────────── */
-
-.tv-section__panel {
-  flex: 0 0 auto;
-}
-
-.tv-controls {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.tv-controls__row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-}
-
-.tv-controls__channels {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-1) var(--space-2);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.tv-controls__channel {
-  border: 1px solid transparent;
-  background: none;
-  color: var(--color-muted);
-  cursor: pointer;
-  font: inherit;
-  font-size: var(--text-2xs);
-  letter-spacing: 0.08em;
-  padding: 2px var(--space-2);
-}
-
-.tv-controls__channel:hover:not(:disabled) {
-  border-color: var(--color-line);
-  color: var(--color-text);
-}
-
-.tv-controls__channel[data-active='true'] {
-  border-color: var(--color-signal-dim);
-  color: var(--color-signal);
-}
-
-.tv-controls__channel:disabled {
-  cursor: not-allowed;
-  opacity: 0.45;
-}
-
-.tv-controls__readout {
-  margin: 0;
-  color: var(--color-text);
-  font-size: var(--text-xs);
-}
-
-.tv-controls__hint {
-  margin: 0;
-  font-size: var(--text-2xs);
-  letter-spacing: 0.06em;
-}
-
-/* ── DOM receiver (no WebGL) ───────────────────────────────── */
-
-.dom-tv {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-2);
-  height: 100%;
-  justify-content: center;
-  padding: var(--space-4);
+  padding: 4vmin;
 }
 
 .dom-tv__cabinet {
-  border: 1px solid var(--color-line-strong);
-  background: linear-gradient(180deg, #1a1d18 0%, #10130f 100%);
+  width: min(52vw, 68vh, 460px);
+  padding: 3% 3% 2%;
+  border: 1px solid var(--line-strong);
   border-radius: 10px;
-  padding: var(--space-3) var(--space-3) var(--space-2);
-  max-width: min(420px, 90%);
-  width: 100%;
+  background: linear-gradient(180deg, var(--pink-dark) 0%, var(--void-soft) 100%);
+  box-shadow:
+    0 0 0 1px rgb(var(--void-rgb) / 90%),
+    0 2vh 6vh rgb(var(--void-rgb) / 80%);
 }
 
+/* The picture is the click surface, exactly as in the 3D set. It is not a
+   button: the channel decides whether the point it was given meant
+   anything, and most of the time it does not. */
 .dom-tv__screen {
   position: relative;
   overflow: hidden;
-  border-radius: 8px;
-  background: #05060a;
   aspect-ratio: 4 / 3;
+  border-radius: 8px;
+  background: var(--void);
 }
 
 .dom-tv__canvas {
@@ -189,8 +48,12 @@
   width: 100%;
   height: 100%;
   image-rendering: pixelated;
+  transition: opacity var(--duration-normal) var(--ease-out);
 }
 
+/* Curvature, scanlines and vignette — the parts of the CRT shader that can
+   be had for free. The same-hue rule applies: the darkening is neutral and
+   the glow is pink, never a channel split. */
 .dom-tv__overlay {
   position: absolute;
   inset: 0;
@@ -198,94 +61,95 @@
   background:
     repeating-linear-gradient(
       180deg,
-      rgb(0 0 0 / 24%) 0px,
-      rgb(0 0 0 / 24%) 1px,
+      rgb(var(--void-rgb) / 26%) 0px,
+      rgb(var(--void-rgb) / 26%) 1px,
       transparent 1px,
       transparent 3px
     ),
-    radial-gradient(120% 120% at 50% 50%, transparent 55%, rgb(0 0 0 / 65%) 100%);
+    radial-gradient(
+      120% 120% at 50% 45%,
+      rgb(var(--pink-low-rgb) / 10%) 0%,
+      transparent 55%,
+      rgb(var(--void-rgb) / 78%) 100%
+    );
 }
 
 .dom-tv[data-powered='false'] .dom-tv__canvas {
-  opacity: 0.05;
+  opacity: 0.04;
 }
 
-.dom-tv__standby {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  color: var(--color-dim);
-  font-size: var(--text-2xs);
-  letter-spacing: 0.3em;
-  text-transform: uppercase;
-}
+/* ── The three keys ────────────────────────────────────────────
+   Distinguished by shape and position only. Round keys step through the
+   channels; the square key is power. Nothing is labelled, because the
+   sequence that opens the unlisted channel is not worth spelling out. */
 
 .dom-tv__strip {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding-top: var(--space-2);
+  justify-content: flex-end;
+  gap: 3%;
+  padding-top: 3%;
 }
 
-.dom-tv__grille {
-  width: 40%;
-  height: 10px;
-  background: repeating-linear-gradient(
-    180deg,
-    rgb(0 0 0 / 60%) 0px,
-    rgb(0 0 0 / 60%) 2px,
-    transparent 2px,
-    transparent 4px
-  );
+.dom-tv__key {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  border: 1px solid rgb(var(--void-rgb) / 80%);
+  background: var(--pink-dark);
+  box-shadow:
+    inset 0 1px 0 rgb(var(--pink-mid-rgb) / 22%),
+    0 1px 2px rgb(var(--void-rgb) / 70%);
+  transition:
+    background-color var(--duration-fast) var(--ease-out),
+    transform var(--duration-fast) var(--ease-out);
 }
 
-.dom-tv__lamp {
-  width: 8px;
-  height: 8px;
+.dom-tv__key[data-shape='round'] {
   border-radius: 50%;
-  background: #1d1210;
 }
 
-.dom-tv__lamp[data-on='true'] {
-  background: var(--color-danger);
-  box-shadow: 0 0 6px rgb(228 79 79 / 60%);
+.dom-tv__key[data-shape='square'] {
+  border-radius: 2px;
+  margin-inline-start: 6%;
 }
 
-.dom-tv__note {
-  margin: 0;
-  color: var(--color-dim);
-  font-size: var(--text-2xs);
-  text-align: center;
+.dom-tv__key:hover {
+  background: var(--pink-low);
 }
 
-/* ── Small screens ─────────────────────────────────────────── */
+.dom-tv__key:active {
+  transform: translateY(1px);
+  background: var(--pink-mid);
+}
+
+/* The only lit thing on the cabinet, and the only readout of any kind. */
+.dom-tv__key[data-shape='square'][data-on='true'] {
+  background: var(--pink-main);
+  box-shadow:
+    inset 0 1px 0 rgb(var(--pink-high-rgb) / 45%),
+    0 0 6px rgb(var(--pink-main-rgb) / 55%);
+}
 
 @media (max-width: 720px) {
-  .tv-section[data-mode='scroll'] {
-    height: 260vh;
+  .dom-tv__cabinet {
+    width: min(88vw, 420px);
   }
 
-  .tv-stage {
-    min-height: 38vh;
-  }
-
-  .tv-controls__hint {
-    display: none;
+  /* Comfortably tappable without becoming furniture. */
+  .dom-tv__key {
+    width: 26px;
+    height: 26px;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .tv-section[data-mode='scroll'] {
-    height: auto;
+  .dom-tv__canvas,
+  .dom-tv__key {
+    transition: none;
   }
 
-  .tv-section[data-mode='scroll'] .tv-section__pin {
-    position: static;
-    height: auto;
-  }
-
-  .tv-stage {
-    min-height: 60vh;
+  .dom-tv__key:active {
+    transform: none;
   }
 }

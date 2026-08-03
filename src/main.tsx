@@ -4,10 +4,7 @@ import { App } from './app/App';
 
 import './styles/tokens.css';
 import './styles/base.css';
-import './styles/layers.css';
-import './styles/ui.css';
-import './styles/pages.css';
-import './styles/console.css';
+import './styles/experience.css';
 import './styles/tv.css';
 
 const container = document.getElementById('root');

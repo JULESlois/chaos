@@ -96,34 +96,7 @@ window.scrollTo = (): void => {};
 HTMLCanvasElement.prototype.toDataURL = (): string =>
   'data:image/png;base64,iVBORw0KGgo=';
 
-/**
- * React Router builds a `Request` for every client-side navigation. Under
- * jsdom the global `AbortController` comes from jsdom while `Request` comes
- * from Node, and Node refuses a foreign `AbortSignal`, which turns any
- * programmatic navigate() into an unhandled rejection. The app declares no
- * loaders or actions, so a structural stand-in is enough.
- */
-class RequestStub {
-  readonly url: string;
-  readonly method: string;
-  readonly headers: Headers;
-  readonly signal: AbortSignal | null;
-  readonly body: unknown;
-
-  constructor(input: string | { url: string }, init: RequestInit = {}) {
-    this.url = typeof input === 'string' ? input : input.url;
-    this.method = (init.method ?? 'GET').toUpperCase();
-    this.headers = new Headers(init.headers);
-    this.signal = init.signal ?? null;
-    this.body = init.body ?? null;
-  }
-}
-
-vi.stubGlobal('Request', RequestStub);
-
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
-  document.documentElement.removeAttribute('data-signal');
-  document.documentElement.removeAttribute('data-stabilised');
 });

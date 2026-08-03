@@ -53,7 +53,7 @@ export function SignalRoom({
 
   return (
     <group name="signal-room">
-      <fog attach="fog" args={['#05060a', 5.5, 17]} />
+      <fog attach="fog" args={['#070203', 5.5, 17]} />
 
       <mesh
         rotation={[-Math.PI / 2, 0, 0]}
@@ -61,20 +61,20 @@ export function SignalRoom({
         receiveShadow={receiveShadows}
       >
         <planeGeometry args={[26, 26]} />
-        <meshStandardMaterial color="#0a0c0a" roughness={0.98} metalness={0} />
+        <meshStandardMaterial color="#0b0507" roughness={0.98} metalness={0} />
       </mesh>
 
       {detail === 'full' && (
         <mesh position={[0, 3.2, -4.2]} receiveShadow={receiveShadows}>
           <planeGeometry args={[16, 7.4]} />
-          <meshStandardMaterial color="#0b0d10" roughness={1} metalness={0} />
+          <meshStandardMaterial color="#100609" roughness={1} metalness={0} />
         </mesh>
       )}
 
       {dustGeometry && (
         <points ref={dustRef} geometry={dustGeometry} position={[0, 0, 0]}>
           <pointsMaterial
-            color="#9fb39b"
+            color="#b3969b"
             size={0.016}
             sizeAttenuation
             transparent

@@ -37,12 +37,12 @@ export function Lighting({
 
   return (
     <>
-      <ambientLight intensity={0.06} color="#8fa08c" />
+      <ambientLight intensity={0.06} color="#a08c90" />
 
       <pointLight
         ref={screenLightRef}
         position={[0, 1.42, 0.32]}
-        color="#a8ffd0"
+        color="#ffc0c9"
         intensity={screenLight * 3.4}
         distance={5.5}
         decay={2}
@@ -55,11 +55,11 @@ export function Lighting({
       <directionalLight
         position={[-3.6, 3.2, 1.8]}
         intensity={0.22}
-        color="#7d8ea6"
+        color="#6b2933"
       />
 
       {/* Faint bounce from the floor keeps the underside of the set readable. */}
-      <hemisphereLight args={['#1b2a1a', '#05060a', 0.12]} />
+      <hemisphereLight args={['#2a1a1e', '#070203', 0.12]} />
     </>
   );
 }

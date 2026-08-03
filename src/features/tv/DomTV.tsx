@@ -1,7 +1,7 @@
-import { useEffect, useRef, type RefObject } from 'react';
+import { useEffect, useRef } from 'react';
 import type { ChannelManager } from './channels/ChannelManager';
 import { advanceChannels, beginTransitionPhase } from './channels/channel-runtime';
-import type { TVSnapshot } from './types';
+import type { LiveValue, TVButtonId, TVSnapshot } from './types';
 
 interface DomTVProps {
   manager: ChannelManager;
@@ -9,16 +9,21 @@ interface DomTVProps {
   baseFps: number;
   active: boolean;
   reducedMotion: boolean;
-  entropyRef: RefObject<number>;
+  tensionRef: LiveValue<number>;
+  onPress: (id: TVButtonId) => void;
 }
 
 /**
  * The no-WebGL television.
  *
  * The same ChannelManager and the same channels as the 3D scene — only the
- * frame and the CRT treatment change, from a shader to a CSS overlay. The
- * chapter therefore still *says* the same thing on a device that cannot
- * render it in 3D.
+ * cabinet changes, from geometry to three divs. Everything the reader can
+ * find in the 3D set, including the unlisted channel, is reachable here.
+ *
+ * The three controls are real buttons because this is the path a screen
+ * reader and a keyboard take. They are unlabelled in the 3D set for the feel
+ * of it; here they carry names, since there is nothing to spoil for someone
+ * who cannot see the cabinet in the first place.
  */
 export function DomTV({
   manager,
@@ -26,7 +31,8 @@ export function DomTV({
   baseFps,
   active,
   reducedMotion,
-  entropyRef,
+  tensionRef,
+  onPress,
 }: DomTVProps): React.JSX.Element {
   const mountRef = useRef<HTMLDivElement>(null);
   const phaseElapsed = useRef(0);
@@ -67,34 +73,68 @@ export function DomTV({
         delta,
         phaseElapsed: phaseElapsed.current,
         baseFps,
-        entropy: entropyRef.current ?? 0,
+        tension: tensionRef.current ?? 0,
       });
     };
 
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, [manager, snapshot, baseFps, active, entropyRef]);
+  }, [manager, snapshot, baseFps, active, tensionRef]);
+
+  const handleScreenClick = (event: React.MouseEvent<HTMLDivElement>): void => {
+    const canvas = manager.canvas;
+    const rect = canvas.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return;
+    manager.hit(
+      (event.clientX - rect.left) / rect.width,
+      (event.clientY - rect.top) / rect.height,
+    );
+  };
 
   return (
-    <div
-      className="dom-tv"
-      data-powered={snapshot.powered}
-      data-reduced={reducedMotion}
-      aria-hidden="true"
-    >
+    <div className="dom-tv" data-powered={snapshot.powered} data-reduced={reducedMotion}>
       <div className="dom-tv__cabinet">
-        <div className="dom-tv__screen" ref={mountRef}>
-          <span className="dom-tv__overlay" />
-          {!snapshot.powered && <span className="dom-tv__standby">standby</span>}
+        {/*
+          The click surface is the picture, exactly as in the 3D set. It is
+          not a button: the channels decide whether the point they were given
+          meant anything, and most of the time it does not.
+        */}
+        <div
+          className="dom-tv__screen"
+          ref={mountRef}
+          onClick={handleScreenClick}
+          role="presentation"
+        >
+          <span className="dom-tv__overlay" aria-hidden="true" />
         </div>
         <div className="dom-tv__strip">
-          <span className="dom-tv__grille" />
-          <span className="dom-tv__lamp" data-on={snapshot.powered} />
+          <button
+            type="button"
+            className="dom-tv__key"
+            data-shape="round"
+            onClick={() => onPress('prev')}
+          >
+            <span className="visually-hidden">previous channel</span>
+          </button>
+          <button
+            type="button"
+            className="dom-tv__key"
+            data-shape="round"
+            onClick={() => onPress('next')}
+          >
+            <span className="visually-hidden">next channel</span>
+          </button>
+          <button
+            type="button"
+            className="dom-tv__key"
+            data-shape="square"
+            data-on={snapshot.powered}
+            onClick={() => onPress('power')}
+          >
+            <span className="visually-hidden">power</span>
+          </button>
         </div>
       </div>
-      <p className="dom-tv__note">
-        3D receiver unavailable on this device — channel signal shown directly.
-      </p>
     </div>
   );
 }

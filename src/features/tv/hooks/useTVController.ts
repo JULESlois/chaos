@@ -1,26 +1,28 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ChannelManager } from '../channels/ChannelManager';
-import { createArchiveChannel } from '../channels/archive-channel';
-import { createAsciiChannel } from '../channels/ascii-channel';
-import { createBootChannel } from '../channels/boot-channel';
-import { createDeadChannel } from '../channels/dead-channel';
-import { createSignalChannel } from '../channels/signal-channel';
+import { createContactChannel } from '../channels/contact-channel';
+import { createOperatorChannel } from '../channels/operator-channel';
+import { createRecordsChannel } from '../channels/records-channel';
+import { createSelfImageChannel } from '../channels/self-image-channel';
+import { createStaticChannel } from '../channels/static-channel';
+import { createUnlistedChannel } from '../channels/unlisted-channel';
 import { TVStore, type ChannelDescriptor } from '../state/tv-store';
 import type { TVSnapshot } from '../types';
 
 /**
  * The receiver's channel table.
  *
- * Declared statically so the store can exist before the channels do — the
- * boot and dead channels need a reference to the store in their callbacks.
- * The order here must match the registration order below.
+ * This is where every piece of personal information in the site lives —
+ * not in the page. The order here must match the registration order below,
+ * because the store addresses channels by index and the manager by position.
  */
 export const CHANNEL_TABLE: readonly ChannelDescriptor[] = [
-  { id: 'ch-00', label: 'CH-00 · BOOT' },
-  { id: 'ch-01', label: 'CH-01 · OBSERVER' },
-  { id: 'ch-02', label: 'CH-02 · ARCHIVE' },
-  { id: 'ch-03', label: 'CH-03 · FLOW' },
-  { id: 'ch-04', label: 'CH-04 · ———', unlisted: true },
+  { id: 'ch-00', label: 'CH-00 · STATIC' },
+  { id: 'ch-01', label: 'CH-01 · OPERATOR' },
+  { id: 'ch-02', label: 'CH-02 · RECORDS' },
+  { id: 'ch-03', label: 'CH-03 · CONTACT' },
+  { id: 'ch-04', label: 'CH-04 · SELF IMAGE' },
+  { id: 'ch-unlisted', label: 'CH-?? · UNLISTED', unlisted: true },
 ];
 
 export interface TVController {
@@ -32,25 +34,26 @@ interface ControllerOptions {
   width: number;
   height: number;
   /** Called the first time the viewer lands on the unlisted channel. */
-  onDiscoverDeadChannel: () => void;
+  onDiscoverUnlisted: () => void;
 }
 
 function createController({
   width,
   height,
-  onDiscoverDeadChannel,
+  onDiscoverUnlisted,
 }: ControllerOptions): TVController {
   const manager = new ChannelManager({ width, height });
   const store = new TVStore(CHANNEL_TABLE.map((channel) => ({ ...channel })));
 
-  manager.register(createBootChannel(() => store.requestChannel(1)));
-  manager.register(createAsciiChannel());
-  manager.register(createArchiveChannel());
-  manager.register(createSignalChannel());
+  manager.register(createStaticChannel());
+  manager.register(createOperatorChannel());
+  manager.register(createRecordsChannel());
+  manager.register(createContactChannel());
+  manager.register(createSelfImageChannel());
   manager.register(
-    createDeadChannel(() => {
+    createUnlistedChannel(() => {
       store.unlockUnlisted();
-      onDiscoverDeadChannel();
+      onDiscoverUnlisted();
     }),
   );
 
@@ -69,14 +72,14 @@ export function useTVController(options: ControllerOptions): {
   controller: TVController | null;
   snapshot: TVSnapshot | null;
 } {
-  const { width, height, onDiscoverDeadChannel } = options;
+  const { width, height, onDiscoverUnlisted } = options;
   const [controller, setController] = useState<TVController | null>(null);
   const [snapshot, setSnapshot] = useState<TVSnapshot | null>(null);
 
-  const discover = useCallback(() => onDiscoverDeadChannel(), [onDiscoverDeadChannel]);
+  const discover = useCallback(() => onDiscoverUnlisted(), [onDiscoverUnlisted]);
 
   useEffect(() => {
-    const next = createController({ width, height, onDiscoverDeadChannel: discover });
+    const next = createController({ width, height, onDiscoverUnlisted: discover });
     setController(next);
     setSnapshot(next.store.getSnapshot());
 

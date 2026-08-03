@@ -12,6 +12,17 @@ export type TVState =
 
 export type TVButtonId = 'prev' | 'next' | 'power';
 
+/**
+ * A number the render loop reads every frame from outside React.
+ *
+ * A plain ref satisfies this, and so does a getter that derives the value on
+ * demand — which is what the television uses, so scroll progress never has
+ * to be copied into a ref by a second loop just to be read by the first.
+ */
+export interface LiveValue<T> {
+  readonly current: T;
+}
+
 /** Scroll progress thresholds for each cinematography phase. */
 export const PHASE_THRESHOLDS = {
   /** A: distant observation */

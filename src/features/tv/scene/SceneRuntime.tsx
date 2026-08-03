@@ -1,16 +1,16 @@
-import { useEffect, useRef, type RefObject } from 'react';
+import { useEffect, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import type { ChannelManager } from '../channels/ChannelManager';
 import { advanceChannels, beginTransitionPhase } from '../channels/channel-runtime';
-import type { TVSnapshot } from '../types';
+import type { LiveValue, TVSnapshot } from '../types';
 
 interface SceneRuntimeProps {
   manager: ChannelManager;
   snapshot: TVSnapshot;
   /** Frame-rate ceiling for the whole channel system on this device. */
   baseFps: number;
-  entropyRef: RefObject<number>;
-  pointerRef: RefObject<{ x: number; y: number }>;
+  /** Live visual tension, forwarded to the channels each frame. */
+  tensionRef: LiveValue<number>;
 }
 
 /**
@@ -24,8 +24,7 @@ export function SceneRuntime({
   manager,
   snapshot,
   baseFps,
-  entropyRef,
-  pointerRef,
+  tensionRef,
 }: SceneRuntimeProps): null {
   const phaseElapsed = useRef(0);
   const phase = snapshot.transitionPhase;
@@ -42,8 +41,7 @@ export function SceneRuntime({
       delta,
       phaseElapsed: phaseElapsed.current,
       baseFps,
-      entropy: entropyRef.current ?? 0,
-      pointer: pointerRef.current ?? undefined,
+      tension: tensionRef.current ?? 0,
     });
   });
 

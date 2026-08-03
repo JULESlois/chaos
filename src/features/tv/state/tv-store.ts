@@ -2,11 +2,13 @@ import { signalBus } from '@/utils/signal-bus';
 import {
   SWITCH_DURATION,
   SWITCH_TIMELINE,
+  type TVButtonId,
   type TVSnapshot,
   type TVState,
   type TransitionPhase,
 } from '../types';
 import { tvReducer, type TVEvent } from './tv-machine';
+import { UnlockSequence } from './unlock-sequence';
 
 export interface ChannelDescriptor {
   id: string;
@@ -37,6 +39,7 @@ export class TVStore {
   private switchTarget: number | null = null;
 
   private unlistedUnlocked = false;
+  private readonly sequence = new UnlockSequence();
 
   private timers: number[] = [];
   private listeners = new Set<Listener>();
@@ -156,6 +159,39 @@ export class TVStore {
 
   previous(): void {
     this.advance(-1);
+  }
+
+  /**
+   * The only entry point for the three physical buttons.
+   *
+   * Routing every press through here is what makes the hidden sequence
+   * reliable: there is one place where a press exists, so there is no way to
+   * add a control later that performs an action without the sequence seeing
+   * it. The action still happens on the press that completes the sequence —
+   * the ritual is not a modal state the reader has to escape from.
+   */
+  press(button: TVButtonId, now: number = Date.now()): void {
+    const completed = this.sequence.press(button, now);
+
+    if (button === 'prev') this.previous();
+    else if (button === 'next') this.next();
+    else this.togglePower();
+
+    if (completed && !this.unlistedUnlocked) {
+      this.unlockUnlisted();
+      const unlisted = this.channels.findIndex((channel) => channel.unlisted);
+      if (unlisted >= 0) {
+        // Power must be on to receive it, whatever the ritual left behind.
+        if (!this.powered) this.setPower(true);
+        this.requestChannel(unlisted);
+      }
+      signalBus.emit('narrative:unlock', { key: 'unlisted' });
+    }
+  }
+
+  /** Progress through the hidden button sequence, 0–1. Exposed for tests. */
+  get sequenceProgress(): number {
+    return this.sequence.progress;
   }
 
   /**
