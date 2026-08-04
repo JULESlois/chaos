@@ -26,6 +26,8 @@ interface TVCanvasProps {
   tensionRef: LiveValue<number>;
   /** Bumped by the tension controller's horizontal-tear event. */
   tearImpulse: number;
+  /** For screenshots: mount the set synchronously and skip camera damping. */
+  instant?: boolean;
   active: boolean;
   onPress: (id: TVButtonId) => void;
   onContextLost: () => void;
@@ -42,7 +44,8 @@ export function TVCanvas({
   progressRef,
   tensionRef,
   tearImpulse,
-  active,
+  instant,
+  active: _active,
   onPress,
   onContextLost,
 }: TVCanvasProps): React.JSX.Element {
@@ -52,7 +55,9 @@ export function TVCanvas({
   // A lost context is unrecoverable for our purposes — hand over to the DOM
   // television rather than leaving a black rectangle on the page.
   const handleCreated = useCallback(
-    ({ gl }: { gl: { domElement: HTMLCanvasElement; setClearColor: (c: string) => void } }) => {
+    ({ gl }: {
+      gl: { domElement: HTMLCanvasElement; setClearColor: (c: string) => void };
+    }) => {
       gl.setClearColor('#070203');
       gl.domElement.addEventListener(
         'webglcontextlost',
@@ -72,7 +77,7 @@ export function TVCanvas({
     <Canvas
       className="tv-canvas"
       dpr={dpr}
-      frameloop={active ? 'always' : 'never'}
+      frameloop="always"
       shadows={enableShadows}
       gl={{
         antialias: false,
@@ -117,6 +122,7 @@ export function TVCanvas({
         tensionRef={tensionRef}
         reducedMotion={reducedMotion}
         staticView={staticView}
+        instant={instant}
       />
 
       <SceneRuntime

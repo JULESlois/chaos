@@ -3,7 +3,6 @@ import { isStill } from '@/experience/experience-store';
 import type { SceneId } from '@/experience/phases';
 import type { TensionController } from '@/systems/tension/tension';
 import { clamp, clamp01, damp, lerp } from '@/utils/math';
-import { signalBus } from '@/utils/signal-bus';
 import { GlyphPainter } from './GlyphPainter';
 import { VOID } from './palette';
 import { FeedbackLayer } from './layers/feedback-layer';
@@ -12,7 +11,16 @@ import { ChaosScene } from './scenes/chaos-scene';
 import { CurrentScene } from './scenes/current-scene';
 import { FormScene } from './scenes/form-scene';
 import { SilenceScene } from './scenes/silence-scene';
+import { TelevisionScene } from './scenes/television-scene';
 import { VoidScene } from './scenes/void-scene';
+import { RainField, makeRainConfig } from './rain/rain-field';
+import {
+  blendRainParams,
+  createRainParams,
+  RAIN_PRESETS,
+  type RainParams,
+} from './rain/rain-preset';
+import { signalSurface } from '@/systems/signal/signal-surface';
 import type {
   AsciiRuntime,
   AsciiScene,
@@ -30,6 +38,17 @@ const TARGET_FPS: Record<QualityTier, number> = { 0: 60, 1: 45, 2: 30 };
 
 /** Seconds a scene crossfade takes. */
 const TRANSITION_TIME = 0.55;
+
+/**
+ * The seed for the one rain field.
+ *
+ * There is exactly one, for the whole visit. It used to be five — one per
+ * screen, all seeded 2407 so they looked alike — but only the two screens
+ * involved in a crossfade were ever ticked, so an incoming screen's rain
+ * always began from its populate positions. Identical seeds made that hard to
+ * see in a still and impossible to miss in motion.
+ */
+const RAIN_SEED = 2407;
 /** Frame budget above which the engine starts thinning the field. */
 const SLOW_FRAME_MS = 26;
 
@@ -69,6 +88,19 @@ export class AsciiEngine {
   private readonly feedback = new FeedbackLayer();
   private readonly ghost: GhostLayer;
   private readonly scenes: Map<SceneId, AsciiScene>;
+
+  /**
+   * The rain, owned here rather than by any screen.
+   *
+   * Screens describe it through `RAIN_PRESETS` and never hold simulation
+   * state, so scrolling from CURRENT to FORM changes only the parameters the
+   * field is asked for — the heads keep the positions they already had.
+   */
+  private readonly rain = new RainField(RAIN_SEED);
+  private readonly rainOutgoing: RainParams = createRainParams();
+  private readonly rainIncoming: RainParams = createRainParams();
+  private readonly rainParams: RainParams = createRainParams();
+
   private readonly maxDpr: number;
   private readonly reducedMotion: boolean;
   private readonly baseBudget: number;
@@ -110,9 +142,6 @@ export class AsciiEngine {
   private outgoingScene: AsciiScene | null = null;
   private transition = 1;
 
-  private absorbRect: DOMRect | null = null;
-  private absorbAmount = 0;
-
   private observer: ResizeObserver | null = null;
   private readonly teardown: Array<() => void> = [];
 
@@ -134,15 +163,15 @@ export class AsciiEngine {
     this.painter = new GlyphPainter(this.baseBudget * 2);
     this.ghost = new GhostLayer(this.baseBudget);
 
-    // Scene populations are sized off the budget, so a low tier device builds
-    // smaller arrays rather than building large ones and under-using them.
-    const populationScale = this.baseBudget / BUDGETS[0];
+    // The rain scenes size themselves off the viewport and the quality tier at
+    // resize, so nothing here needs a population argument.
     this.scenes = new Map<SceneId, AsciiScene>([
       ['void', new VoidScene()],
-      ['current', new CurrentScene(Math.round(4200 * populationScale))],
-      ['form', new FormScene(Math.round(3600 * populationScale))],
-      ['chaos', new ChaosScene(Math.round(3000 * populationScale))],
+      ['current', new CurrentScene()],
+      ['form', new FormScene()],
+      ['chaos', new ChaosScene()],
       ['silence', new SilenceScene()],
+      ['television', new TelevisionScene()],
     ]);
 
     this.activeScene = this.scenes.get('void')!;
@@ -154,6 +183,7 @@ export class AsciiEngine {
       experience: this.store.current,
       tension: this.tension.current,
       events: this.tension.events,
+      reducedMotion: this.reducedMotion,
       painter: this.painter,
       time: 0,
       delta: 0,
@@ -164,7 +194,6 @@ export class AsciiEngine {
     this.installInput();
     this.installResize();
     this.installVisibility();
-    this.installTelevisionBridge();
     this.measure();
   }
 
@@ -209,11 +238,6 @@ export class AsciiEngine {
     return this.outgoingScene !== null;
   }
 
-  /** True once the television has asked the field to converge onto it. */
-  get absorbing(): boolean {
-    return this.absorbAmount > 0.01 && this.absorbRect !== null;
-  }
-
   /** The scene instance for a screen, so tests can watch its lifecycle. */
   sceneFor(id: SceneId): AsciiScene | undefined {
     return this.scenes.get(id);
@@ -238,9 +262,11 @@ export class AsciiEngine {
     for (const scene of this.scenes.values()) scene.dispose();
     this.scenes.clear();
 
+    this.rain.dispose();
     this.feedback.dispose();
     this.ghost.dispose();
     this.tension.reset();
+    signalSurface.clear();
   }
 
   // ── input ──────────────────────────────────────────────────────
@@ -298,22 +324,6 @@ export class AsciiEngine {
     this.teardown.push(() => document.removeEventListener('visibilitychange', onVisibility));
   }
 
-  /**
-   * The television asks the field to converge onto its screen. Rather than
-   * moving every character individually, the whole flush is transformed into
-   * the target rectangle — the field is not travelling to the screen, it is
-   * becoming the screen.
-   */
-  private installTelevisionBridge(): void {
-    const offAbsorb = signalBus.on('tv:absorb', ({ rect }) => {
-      this.absorbRect = rect;
-    });
-    const offRelease = signalBus.on('tv:release', () => {
-      this.absorbRect = null;
-    });
-    this.teardown.push(offAbsorb, offRelease);
-  }
-
   // ── layout ─────────────────────────────────────────────────────
 
   private measure(): void {
@@ -348,6 +358,7 @@ export class AsciiEngine {
 
     this.feedback.resize(view);
     this.ghost.resize(view);
+    this.rain.resize(view, this.runtime.quality);
     for (const scene of this.scenes.values()) scene.resize(view);
   }
 
@@ -420,16 +431,18 @@ export class AsciiEngine {
     runtime.time = this.elapsed;
     runtime.delta = delta;
 
-    // The television epilogue owns the screen; the field yields to it.
-    const absorbTarget = this.absorbRect ? 1 : 0;
-    this.absorbAmount = lerp(this.absorbAmount, absorbTarget, damp(3.2, delta));
-
     const fullBudget = Math.floor(
       this.baseBudget * this.qualityScale * clamp01(0.15 + tension.density),
     );
 
     this.feedback.before(this.runtime);
     this.painter.reset();
+
+    // The rain goes down first, once, underneath whatever the screens draw on
+    // top of it. It is not part of the scene crossfade: the field is shared,
+    // so a boundary blends the *parameters* handed to one simulation rather
+    // than dissolving between two of them.
+    this.renderRain();
 
     if (this.outgoingScene && this.transition < 1) {
       runtime.budget = Math.floor(fullBudget * (1 - this.transition));
@@ -456,31 +469,70 @@ export class AsciiEngine {
 
     this.flush(tension.tearAmount);
     this.feedback.after(this.runtime);
+
+    // One field, two places to look at it.
+    //
+    // This side of the contract holds: the whole canvas is published at full
+    // size, never scaled or parked to make room for the television, so there
+    // is exactly one rain and one animation loop.
+    //
+    // The consumer side does not hold yet, and this comment used to imply it
+    // did. `signalSurface.blit` centre-crops whatever it is handed down to the
+    // destination's aspect, and the destination is a 320×240 channel canvas,
+    // so the television is currently showing a cropped, low-resolution copy of
+    // this surface rather than this surface. Publishing the whole canvas is
+    // necessary for the reveal to be true; it is not sufficient.
+    signalSurface.publish(this.canvas, this.view.width, this.view.height);
+  }
+
+  /**
+   * Resolves this frame's rain parameters and draws the field.
+   *
+   * Mid-crossfade the outgoing screen is evaluated at progress 1 rather than
+   * at the incoming screen's progress. The screens share a runtime, and
+   * `localProgress` belongs to whichever screen is current, so asking the
+   * departing screen for its parameters at the arriving screen's progress
+   * snapped its forms back to their opening values at exactly the moment they
+   * were supposed to be fading out.
+   */
+  private renderRain(): void {
+    const active = RAIN_PRESETS[this.activeScene.id];
+    const localProgress = this.runtime.experience.localProgress;
+
+    let params: RainParams;
+    if (this.outgoingScene && this.transition < 1) {
+      RAIN_PRESETS[this.outgoingScene.id].apply(this.rainOutgoing, this.runtime, 1);
+      active.apply(this.rainIncoming, this.runtime, localProgress);
+      blendRainParams(this.rainParams, this.rainOutgoing, this.rainIncoming, this.transition);
+      params = this.rainParams;
+    } else {
+      active.apply(this.rainParams, this.runtime, localProgress);
+      params = this.rainParams;
+    }
+
+    this.rain.render(
+      this.ctx,
+      makeRainConfig(this.runtime, {
+        seed: RAIN_SEED,
+        formWeights: params.formWeights,
+        chaos: params.chaos,
+        weight: params.weight,
+        bootProgress: params.bootProgress,
+        bootLineStrength: params.bootLineStrength,
+        releaseStrength: params.releaseStrength,
+        trailGrowth: params.trailGrowth,
+      }),
+    );
   }
 
   private flush(tear: number): void {
-    const ctx = this.ctx;
-    const absorbing = this.absorbAmount > 0.001 && this.absorbRect !== null;
-
-    if (absorbing) {
-      const rect = this.absorbRect!;
-      const t = this.absorbAmount;
-      const scaleX = lerp(1, rect.width / Math.max(1, this.view.width), t);
-      const scaleY = lerp(1, rect.height / Math.max(1, this.view.height), t);
-      ctx.save();
-      ctx.translate(lerp(0, rect.left, t), lerp(0, rect.top, t));
-      ctx.scale(scaleX, scaleY);
-    }
-
     const tearHeight = tear > 0.02 ? this.view.height * (0.04 + tear * 0.1) : 0;
-    this.painter.flush(ctx, {
+    this.painter.flush(this.ctx, {
       tearCentre: tearHeight > 0 ? this.tearCentre() : -1,
       tearHeight,
       tearShift: tearHeight > 0 ? this.view.width * 0.16 * tear : 0,
       allowHighlight: !this.reducedMotion,
     });
-
-    if (absorbing) ctx.restore();
   }
 
   /**
@@ -516,8 +568,6 @@ export class AsciiEngine {
   }
 
   private routeScene(sceneId: SceneId): void {
-    // The television screen has no ASCII scene of its own; the field simply
-    // keeps rendering whatever silence left behind while it is absorbed.
     const next = this.scenes.get(sceneId) ?? this.scenes.get('silence')!;
     if (next === this.activeScene) return;
 

@@ -7,3 +7,4 @@ coverage
 .vite
 .eslintcache
 npm-debug.log*
+artifacts/frames

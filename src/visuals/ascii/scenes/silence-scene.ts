@@ -1,157 +1,151 @@
-import { clamp01, createRng, smoothstep } from '@/utils/math';
-import { CHARSETS, glyphFor } from '../charset';
-import { bucketFor } from '../palette';
-import type { AsciiRuntime, AsciiScene, AsciiViewport } from '../types';
-
-/** How many depth marks the corridor is built from. Small by design. */
-const MARK_COUNT = 900;
-/** Near and far clip, in arbitrary depth units. */
-const NEAR = 0.35;
-const FAR = 9;
+import { glassStrength } from '@/systems/signal/reveal-state';
+import { smoothstep } from '@/utils/math';
+import { CHARSETS } from '../charset';
+import type { AsciiRuntime, AsciiScene, AsciiViewport, QualityTier } from '../types';
 
 /**
  * Screen five — SILENCE.
  *
- * After the chaos screen stops mid-sentence, this one gives the reader
- * somewhere to stand. A very low density of characters recedes toward a
- * vanishing point slightly below centre, and a single dim pink light sits at
- * the far end of it.
+ * The rain does not leave; it stops. Almost every column is frozen mid-fall, so
+ * the field reads as a paused frame of something that was moving a second ago,
+ * with the last coherent anatomy still faintly held in it. Every few seconds
+ * the signal tries once — a short re-scan runs down a handful of columns and
+ * fails again.
  *
- * That light is the television, seen from across the room before the room
- * exists. By the end of this screen the WebGL scene behind it has been asked
- * to warm up, so the transition into the epilogue is a continuation of a
- * movement the reader is already making rather than a new thing appearing.
+ * The other thing that happens here is the leak, and it is all this class does
+ * now. Scanlines, a vignette and then the faint curved edge of a screen bleed
+ * in from nowhere and sit *over* the field. Nothing has moved and no camera has
+ * appeared, but by the end of the screen the reader is looking at something
+ * with a border. That border is the television, and TELEVISION only has to pull
+ * back from it.
  *
- * The perspective is done by hand — a divide, not a matrix. There is no camera
- * here and no second renderer; it is the same 2D canvas and the same painter.
+ * The stopping of the rain is `SILENCE_PRESET`; the field belongs to the engine.
  */
 export class SilenceScene implements AsciiScene {
   readonly id = 'silence';
   readonly charset = CHARSETS.silence;
 
-  /** Interleaved x,y offsets from the vanishing point, in depth-unit space. */
-  private readonly offsets: Float32Array;
-  private readonly depths: Float32Array;
-  private readonly seeds: Float32Array;
-
+  private quality: QualityTier = 0;
   private width = 1;
   private height = 1;
+  private vignette: CanvasGradient | null = null;
+  private vignetteDirty = true;
 
-  constructor(seed = 0x5_11_e0) {
-    this.offsets = new Float32Array(MARK_COUNT * 2);
-    this.depths = new Float32Array(MARK_COUNT);
-    this.seeds = new Float32Array(MARK_COUNT);
-
-    const rng = createRng(seed);
-    for (let index = 0; index < MARK_COUNT; index += 1) {
-      // Marks are scattered on a ring so the centre of the corridor stays
-      // empty; that emptiness is what the distant light needs to be visible.
-      const angle = rng() * Math.PI * 2;
-      const radius = 0.35 + rng() * 1.5;
-      this.offsets[index * 2] = Math.cos(angle) * radius;
-      this.offsets[index * 2 + 1] = Math.sin(angle) * radius * 0.62;
-      this.depths[index] = NEAR + rng() * (FAR - NEAR);
-      this.seeds[index] = rng();
-    }
-  }
-
-  enter(): void {
-    // Depth state is time-derived; nothing to prime.
+  enter(runtime: AsciiRuntime): void {
+    this.quality = runtime.quality;
   }
 
   update(): void {
-    // The corridor moves as a function of elapsed time in `render`, so there
-    // is no per-frame simulation to advance and nothing to fall out of sync.
+    // Rain parameters live in SILENCE_PRESET.
   }
 
   render(runtime: AsciiRuntime): void {
-    const { painter, tension, experience } = runtime;
-    const local = experience.localProgress;
-    const ceiling = tension.lightIntensity;
-
-    const vanishX = this.width * 0.5;
-    const vanishY = this.height * 0.52;
-    // Focal length in pixels; wider viewports get a longer corridor.
-    const focal = Math.min(this.width, this.height) * 0.55;
-
-    // Drift toward the vanishing point accelerates through the screen, so the
-    // approach speeds up exactly as the television comes into view.
-    const travel = runtime.time * (0.25 + local * 0.5);
-    const budget = Math.min(MARK_COUNT, Math.max(0, Math.floor(runtime.budget)));
-
-    for (let index = 0; index < budget; index += 1) {
-      // Cycling the depth keeps the corridor infinite without respawning.
-      const span = FAR - NEAR;
-      let depth = this.depths[index]! - travel;
-      depth = NEAR + (((depth - NEAR) % span) + span) % span;
-
-      const scale = focal / depth;
-      const x = vanishX + this.offsets[index * 2]! * scale;
-      const y = vanishY + this.offsets[index * 2 + 1]! * scale;
-
-      if (x < -20 || x > this.width + 20 || y < -20 || y > this.height + 20) continue;
-
-      // Near marks are bright, far marks fade into the vanishing point.
-      const depthFade = 1 - smoothstep(NEAR, FAR * 0.8, depth);
-      const intensity = clamp01(depthFade * (0.3 + this.seeds[index]! * 0.5) * tension.density * 5);
-      if (intensity <= 0.06) continue;
-
-      painter.push(x, y, glyphFor(this.charset, intensity), bucketFor(intensity, ceiling));
-    }
-
-    this.renderDistantLight(runtime, vanishX, vanishY, local);
+    this.renderBoundaryLeak(runtime);
   }
 
   /**
-   * The light at the end.
+   * The television boundary, bleeding in.
    *
-   * A tight cluster of the brightest glyphs at the vanishing point, growing
-   * through the screen. It is drawn with the painter rather than as a radial
-   * gradient so that it is unambiguously made of the same characters as
-   * everything else — the television is not a different medium, it is what the
-   * field resolves into.
+   * Drawn in the page's own coordinates, not in the WebGL scene — the point is
+   * that the frame arrives *before* the object it belongs to, so the epilogue
+   * can begin already inside a screen instead of cutting to one.
+   *
+   * It is a stand-in, and it knows it. Once the camera starts backing out, the
+   * CRT shader begins drawing the same optics for real, and this fades out at
+   * the rate that one fades in. Leaving it up would scanline every frame twice
+   * — once here and once in the shader sampling this very canvas.
    */
-  private renderDistantLight(
-    runtime: AsciiRuntime,
-    vanishX: number,
-    vanishY: number,
-    local: number,
-  ): void {
-    const bloom = smoothstep(0.25, 1, local);
-    if (bloom <= 0.01) return;
+  private renderBoundaryLeak(runtime: AsciiRuntime): void {
+    const p = runtime.experience.localProgress;
+    const leak = smoothstep(0.18, 0.98, p) * (1 - glassStrength());
+    if (leak <= 0.01) return;
 
-    const { painter, tension } = runtime;
-    const radius = Math.min(this.width, this.height) * (0.012 + bloom * 0.05);
-    const rings = 3;
+    const ctx = runtime.ctx;
+    const w = this.width;
+    const h = this.height;
+    if (this.vignetteDirty) this.buildVignette(ctx);
+    ctx.save();
 
-    for (let ring = 0; ring < rings; ring += 1) {
-      const ringRadius = radius * ((ring + 1) / rings);
-      const count = 6 + ring * 8;
-      const spin = runtime.time * 0.12 * (ring % 2 === 0 ? 1 : -1);
-      const intensity = clamp01(bloom * (1 - ring / rings) * 1.1);
-
-      for (let step = 0; step < count; step += 1) {
-        const angle = spin + (step / count) * Math.PI * 2;
-        painter.push(
-          vanishX + Math.cos(angle) * ringRadius,
-          vanishY + Math.sin(angle) * ringRadius * 0.62,
-          glyphFor(this.charset, intensity),
-          bucketFor(intensity, tension.lightIntensity),
-        );
+    // Scanlines. Spaced by device, never below two CSS pixels.
+    if (!runtime.reducedMotion || leak > 0.5) {
+      const spacing = this.quality === 2 ? 6 : 4;
+      const roll = (runtime.time * 22) % spacing;
+      ctx.fillStyle = `rgba(0,0,0,${0.1 + leak * 0.24})`;
+      for (let y = -spacing + roll; y < h; y += spacing) {
+        ctx.fillRect(0, y, w, 1);
       }
     }
+
+    // Vignette, cached per size.
+    if (this.vignette) {
+      ctx.globalAlpha = leak * 0.85;
+      ctx.fillStyle = this.vignette;
+      ctx.fillRect(0, 0, w, h);
+      ctx.globalAlpha = 1;
+    }
+
+    // The curved edge of the glass. Inset grows as the screen "recedes" a
+    // little inside the viewport, so TELEVISION starts from a shape that is
+    // already there instead of introducing one.
+    const inset = leak * Math.min(w, h) * 0.035;
+    const radius = Math.min(w, h) * (0.05 + leak * 0.05);
+    ctx.strokeStyle = `rgba(255,176,190,${leak * 0.16})`;
+    ctx.lineWidth = 1 + leak * 1.5;
+    roundRect(ctx, inset, inset, w - inset * 2, h - inset * 2, radius);
+    ctx.stroke();
+
+    ctx.restore();
   }
 
   exit(): void {
-    // Nothing retained.
+    // Nothing retained. The field carries on frozen because TELEVISION_PRESET
+    // opens where SILENCE_PRESET left off, not because this class held it.
   }
 
   resize(view: AsciiViewport): void {
     this.width = view.width;
     this.height = view.height;
+    this.vignetteDirty = true;
+  }
+
+  /** Built from the live context, cached until the next resize. */
+  private buildVignette(ctx: CanvasRenderingContext2D): void {
+    this.vignetteDirty = false;
+    const w = this.width;
+    const h = this.height;
+    const g = ctx.createRadialGradient(
+      w * 0.5,
+      h * 0.5,
+      Math.min(w, h) * 0.25,
+      w * 0.5,
+      h * 0.5,
+      Math.max(w, h) * 0.72,
+    );
+    g.addColorStop(0, 'rgba(0,0,0,0)');
+    g.addColorStop(0.65, 'rgba(0,0,0,0.28)');
+    g.addColorStop(1, 'rgba(0,0,0,0.78)');
+    this.vignette = g;
   }
 
   dispose(): void {
-    // All state is in typed arrays owned by this instance.
+    this.vignette = null;
   }
+}
+
+function roundRect(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  r: number,
+): void {
+  const rr = Math.min(r, w * 0.5, h * 0.5);
+  ctx.beginPath();
+  ctx.moveTo(x + rr, y);
+  ctx.arcTo(x + w, y, x + w, y + h, rr);
+  ctx.arcTo(x + w, y + h, x, y + h, rr);
+  ctx.arcTo(x, y + h, x, y, rr);
+  ctx.arcTo(x, y, x + w, y, rr);
+  ctx.closePath();
 }

@@ -50,6 +50,8 @@ export interface AsciiRuntime {
   readonly experience: Readonly<ExperienceState>;
   readonly tension: Readonly<VisualTension>;
   readonly events: Readonly<EventEnvelopes>;
+  /** True when the reader asked the OS to minimise motion. */
+  readonly reducedMotion: boolean;
   readonly painter: GlyphPainter;
   /** Seconds since the engine started. Monotonic, pauses with the page. */
   readonly time: number;

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ExperienceStore } from '@/experience/experience-store';
 import { EXPERIENCE_PHASES, type SceneId } from '@/experience/phases';
+import { signalSurface } from '@/systems/signal/signal-surface';
 import { TensionController } from '@/systems/tension/tension';
 import { signalBus } from '@/utils/signal-bus';
 import { AsciiEngine } from './AsciiEngine';
@@ -170,12 +171,10 @@ describe('the animation loop', () => {
     engine.start();
     engine.dispose();
 
-    // Nothing may still be reacting to input or to the television.
+    // Nothing may still be reacting to input.
     expect(() => {
       window.dispatchEvent(new Event('pointermove'));
       document.dispatchEvent(new Event('visibilitychange'));
-      signalBus.emit('tv:absorb', { rect: null });
-      signalBus.emit('tv:release');
     }).not.toThrow();
     expect(engine.isRunning).toBe(false);
     expect(clock.pending).toBe(0);
@@ -276,9 +275,10 @@ describe('scene lifecycle', () => {
       seen.push(engine.activeSceneId);
     }
 
-    // The television has no ASCII scene of its own; the field holds silence
-    // while the set takes over.
-    expect(seen).toEqual(['void', 'current', 'form', 'chaos', 'silence', 'silence']);
+    // The television screen has its own scene now: the broadcast has to keep
+    // running while the camera pulls out of it, because the surface the set is
+    // showing is this very field.
+    expect(seen).toEqual(['void', 'current', 'form', 'chaos', 'silence', 'television']);
   });
 
   it('enters and exits a scene exactly once per visit', () => {
@@ -375,22 +375,35 @@ describe('the restricted alphabets', () => {
   });
 });
 
-describe('the television bridge', () => {
-  it('converges onto the rect it is handed and lets go on release', () => {
+describe('the signal the television shows', () => {
+  it('publishes the whole field, at full size, every frame', () => {
     const engine = createEngine();
     engine.start();
-    goTo('silence');
+    goTo('silence', 0.9);
     clock.run(30);
-    expect(engine.absorbing).toBe(false);
 
-    const rect = new DOMRect(320, 180, 640, 480);
-    signalBus.emit('tv:absorb', { rect });
-    clock.run(60);
-    expect(engine.absorbing).toBe(true);
+    // The television is not handed a shrunken copy of the field to stand in
+    // for it. It is handed the field. If this ever narrows to a sub-rect, the
+    // set is showing a picture-in-picture of the page instead of being the
+    // thing the page was inside all along.
+    expect(signalSurface.available).toBe(true);
+    expect(signalSurface.canvas).toBe(canvas);
+    expect(signalSurface.width).toBe(engine.viewport.width);
+    expect(signalSurface.height).toBe(engine.viewport.height);
 
-    signalBus.emit('tv:release');
-    clock.run(120);
-    expect(engine.absorbing).toBe(false);
+    const before = signalSurface.frameId;
+    clock.run(10);
+    expect(signalSurface.frameId).toBeGreaterThan(before);
+  });
+
+  it('stops publishing once the engine is gone', () => {
+    const engine = createEngine();
+    engine.start();
+    clock.run(20);
+    expect(signalSurface.available).toBe(true);
+
+    engine.dispose();
+    expect(signalSurface.available).toBe(false);
   });
 });
 

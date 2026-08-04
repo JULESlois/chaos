@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { ChannelManager } from '../channels/ChannelManager';
 import { createContactChannel } from '../channels/contact-channel';
 import { createOperatorChannel } from '../channels/operator-channel';
 import { createRecordsChannel } from '../channels/records-channel';
 import { createSelfImageChannel } from '../channels/self-image-channel';
-import { createStaticChannel } from '../channels/static-channel';
+import { createSignalChannel } from '../channels/signal-channel';
 import { createUnlistedChannel } from '../channels/unlisted-channel';
 import { TVStore, type ChannelDescriptor } from '../state/tv-store';
 import type { TVSnapshot } from '../types';
@@ -17,7 +17,7 @@ import type { TVSnapshot } from '../types';
  * because the store addresses channels by index and the manager by position.
  */
 export const CHANNEL_TABLE: readonly ChannelDescriptor[] = [
-  { id: 'ch-00', label: 'CH-00 · STATIC' },
+  { id: 'ch-00', label: 'CH-00 · SIGNAL' },
   { id: 'ch-01', label: 'CH-01 · OPERATOR' },
   { id: 'ch-02', label: 'CH-02 · RECORDS' },
   { id: 'ch-03', label: 'CH-03 · CONTACT' },
@@ -37,7 +37,7 @@ interface ControllerOptions {
   onDiscoverUnlisted: () => void;
 }
 
-function createController({
+export function createController({
   width,
   height,
   onDiscoverUnlisted,
@@ -45,7 +45,7 @@ function createController({
   const manager = new ChannelManager({ width, height });
   const store = new TVStore(CHANNEL_TABLE.map((channel) => ({ ...channel })));
 
-  manager.register(createStaticChannel());
+  manager.register(createSignalChannel());
   manager.register(createOperatorChannel());
   manager.register(createRecordsChannel());
   manager.register(createContactChannel());
@@ -97,6 +97,35 @@ export function useTVController(options: ControllerOptions): {
       setSnapshot(null);
     };
   }, [width, height, discover]);
+
+  return { controller, snapshot };
+}
+
+/**
+ * Synchronous controller for screenshot/forced-framing modes.
+ *
+ * `useTVController` creates the controller in an effect so that StrictMode
+ * remounts get a fresh instance. That is correct for the live experience, but
+ * a headless screenshot has already thrown the page away before the effect
+ * fires. This hook creates and subscribes during render so the television is
+ * present on the first paint.
+ */
+export function useInstantTVController(
+  options: ControllerOptions,
+): {
+  controller: TVController;
+  snapshot: TVSnapshot;
+} {
+  const { width, height, onDiscoverUnlisted } = options;
+  const controller = useMemo(
+    () => createController({ width, height, onDiscoverUnlisted }),
+    [width, height, onDiscoverUnlisted],
+  );
+
+  const snapshot = useSyncExternalStore(
+    (callback) => controller.store.subscribe(callback),
+    () => controller.store.getSnapshot(),
+  );
 
   return { controller, snapshot };
 }

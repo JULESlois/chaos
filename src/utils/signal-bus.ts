@@ -7,10 +7,6 @@ import type { TensionEventId } from '@/systems/tension/tension-events';
  * instead of React state, so high-frequency signals never trigger re-renders.
  */
 export interface SignalEventMap {
-  /** TV section wants the ASCII field to converge onto the screen rect. */
-  'tv:absorb': { rect: DOMRect | null };
-  /** TV section releases the ASCII field back to the page. */
-  'tv:release': undefined;
   /** A channel became active. */
   'tv:channel': { id: string; index: number };
   /** TV power state changed. */

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useFrame, type ThreeEvent } from '@react-three/fiber';
 import * as THREE from 'three';
+import { glassStrength } from '@/systems/signal/reveal-state';
 import type { ChannelManager } from '../channels/ChannelManager';
 import crtFragment from '../shaders/crt.frag?raw';
 import crtVertex from '../shaders/crt.vert?raw';
@@ -79,6 +80,8 @@ export function TVScreen({
   const tearRef = useRef(0);
   const tearYRef = useRef(0.5);
   const hoveredRef = useRef(false);
+  /** The curvature actually in the shader this frame. Clicks have to match. */
+  const curvatureRef = useRef(quality.curvature);
 
   // Build the CanvasTexture once per manager instance.
   const texture = useMemo(() => {
@@ -114,14 +117,14 @@ export function TVScreen({
     () => ({
       uTexture: { value: texture },
       uTime: { value: 0 },
-      uCurvature: { value: quality.curvature },
-      uScanline: { value: quality.scanline },
-      uDispersion: { value: quality.dispersion },
-      uNoise: { value: quality.noise },
+      uCurvature: { value: 0 },
+      uScanline: { value: 0 },
+      uDispersion: { value: 0 },
+      uNoise: { value: 0 },
       uTear: { value: 0 },
       uTearY: { value: 0.5 },
-      uBand: { value: quality.band },
-      uVignette: { value: quality.vignette },
+      uBand: { value: 0 },
+      uVignette: { value: 0 },
       uBrightness: { value: 1 },
       uCollapse: { value: 0 },
     }),
@@ -130,17 +133,18 @@ export function TVScreen({
     [texture],
   );
 
-  // Apply quality changes without rebuilding the material.
-  useEffect(() => {
-    const material = materialRef.current;
-    if (!material) return;
-    material.uniforms.uCurvature.value = quality.curvature;
-    material.uniforms.uScanline.value = quality.scanline;
-    material.uniforms.uDispersion.value = quality.dispersion;
-    material.uniforms.uNoise.value = reducedMotion ? 0 : quality.noise;
-    material.uniforms.uBand.value = reducedMotion ? 0 : quality.band;
-    material.uniforms.uVignette.value = quality.vignette;
-  }, [quality, reducedMotion]);
+  /** The tier's ceiling for each effect. The reveal scales all of them. */
+  const ceiling = useMemo(
+    () => ({
+      curvature: quality.curvature,
+      scanline: quality.scanline,
+      dispersion: quality.dispersion,
+      noise: reducedMotion ? 0 : quality.noise,
+      band: reducedMotion ? 0 : quality.band,
+      vignette: quality.vignette,
+    }),
+    [quality, reducedMotion],
+  );
 
   // Trigger a tear when the tension controller asks for one.
   useEffect(() => {
@@ -150,14 +154,15 @@ export function TVScreen({
   }, [tearImpulse, reducedMotion]);
 
   /** Plane UV → texture UV → canvas-relative UV, matching the shader. */
-  const toChannelUv = useCallback(
-    (uv: THREE.Vector2): [number, number] => {
-      const [x, y] = curveUv(uv.x, uv.y, quality.curvature);
-      // flipY is on, so the top of the canvas is v = 1 on the plane.
-      return [x, 1 - y];
-    },
-    [quality.curvature],
-  );
+  const toChannelUv = useCallback((uv: THREE.Vector2): [number, number] => {
+    // Reads the live curvature rather than the tier's ceiling: during the
+    // reveal the shader is only partway into its barrel distortion, and a
+    // click has to land on the row the reader can see, not the one the
+    // fully-warped picture would have put there.
+    const [x, y] = curveUv(uv.x, uv.y, curvatureRef.current);
+    // flipY is on, so the top of the canvas is v = 1 on the plane.
+    return [x, 1 - y];
+  }, []);
 
   const handleMove = useCallback(
     (event: ThreeEvent<PointerEvent>) => {
@@ -202,6 +207,18 @@ export function TVScreen({
     if (!material) return;
 
     material.uniforms.uTime.value += delta;
+
+    // The glass arrives with the camera. At progress 0 every one of these is
+    // zero and the shader passes the field through untouched, which is what
+    // lets the WebGL layer fade up over it without a seam.
+    const strength = glassStrength();
+    curvatureRef.current = ceiling.curvature * strength;
+    material.uniforms.uCurvature.value = curvatureRef.current;
+    material.uniforms.uScanline.value = ceiling.scanline * strength;
+    material.uniforms.uDispersion.value = ceiling.dispersion * strength;
+    material.uniforms.uNoise.value = ceiling.noise * strength;
+    material.uniforms.uBand.value = ceiling.band * strength;
+    material.uniforms.uVignette.value = ceiling.vignette * strength;
 
     // Upload the canvas only when the channel actually drew something.
     if (manager && textureRef.current && manager.needsTextureUpload) {

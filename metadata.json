@@ -1,0 +1,8 @@
+{
+  "name": "Node 07 Archive Terminal",
+  "description": "NODE 07 — a personal digital archive terminal, partially reconstructed. An interactive ASCII visual-flow piece about order failing under load.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

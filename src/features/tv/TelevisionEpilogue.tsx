@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ExperienceStore } from '@/experience/experience-store';
 import { EXPERIENCE_PHASES } from '@/experience/phases';
+import { resetRevealState } from '@/systems/signal/reveal-state';
 import type { DeviceCapabilities } from '@/systems/telemetry/capabilities';
 import { channelResolution } from '@/systems/telemetry/capabilities';
 import type { TensionController } from '@/systems/tension/tension';
@@ -57,7 +58,6 @@ export function TelevisionEpilogue({
   const [tearImpulse, setTearImpulse] = useState(0);
 
   const rootRef = useRef<HTMLDivElement>(null);
-  const targetRef = useRef<HTMLSpanElement>(null);
 
   const { controller, snapshot } = useTVController({
     width: resolution.width,
@@ -105,6 +105,17 @@ export function TelevisionEpilogue({
     setActive(scene === 'silence' || scene === 'television');
   }, [store]);
 
+  /**
+   * The set stops rendering when the reader scrolls back off it, which stops
+   * the camera, which would otherwise leave the reveal frozen at whatever
+   * progress it had reached. The silence screen reads that number to decide
+   * how much of its own faked glass to draw, so a stale one means scrolling
+   * back up loses the boundary leak entirely.
+   */
+  useEffect(() => {
+    if (!active) resetRevealState();
+  }, [active]);
+
   // Feed scroll progress into the television's own state machine. This is a
   // subscription, not a frame loop: the store only publishes on scene change,
   // and the machine's thresholds are coarse enough to sample from scroll.
@@ -133,34 +144,6 @@ export function TelevisionEpilogue({
     };
   }, [controller, progressRef]);
 
-  /**
-   * Hands the ASCII field the rectangle it should converge onto.
-   *
-   * The rect comes from a zero-size marker laid out by CSS at the place the
-   * screen ends up in the final camera framing. Measuring a DOM element is
-   * the only way to keep the 2D field and the 3D camera agreeing about where
-   * the screen is without duplicating the projection maths.
-   */
-  useEffect(() => {
-    if (!active) {
-      signalBus.emit('tv:release');
-      return;
-    }
-
-    const publish = (): void => {
-      const element = targetRef.current;
-      if (!element) return;
-      signalBus.emit('tv:absorb', { rect: element.getBoundingClientRect() });
-    };
-
-    publish();
-    window.addEventListener('resize', publish, { passive: true });
-    return () => {
-      window.removeEventListener('resize', publish);
-      signalBus.emit('tv:release');
-    };
-  }, [active]);
-
   // A structural failure large enough to be heard also rips the picture.
   useEffect(() => {
     return signalBus.on('tension:event', ({ id }) => {
@@ -188,9 +171,6 @@ export function TelevisionEpilogue({
       data-fallback={useFallback}
       ref={rootRef}
     >
-      {/* Where the picture lands on screen. Never painted; only measured. */}
-      <span className="television__target" ref={targetRef} aria-hidden="true" />
-
       {controller && snapshot && !useFallback && (
         <TVCanvas
           manager={controller.manager}
