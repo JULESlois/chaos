@@ -25,6 +25,11 @@ export interface RainParams {
   bootLineStrength: number;
   releaseStrength: number;
   trailGrowth: number;
+  trajectoryDistortion: number;
+  trajectoryAnomaly: number;
+  mutationIntensity: number;
+  glyphPoolMix: number;
+
   formWeights: FormWeights;
   chaos: ChaosFaults;
 }
@@ -54,6 +59,10 @@ export function createRainParams(): RainParams {
     bootLineStrength: 0,
     releaseStrength: 1,
     trailGrowth: 1,
+    trajectoryDistortion: 0,
+    trajectoryAnomaly: 0,
+    mutationIntensity: 0,
+    glyphPoolMix: 0,
     formWeights: { face: 0, figure: 0, hand: 0 },
     chaos: {
       intensity: 0,
@@ -74,6 +83,15 @@ export function blendRainParams(out: RainParams, a: RainParams, b: RainParams, t
   out.bootLineStrength = mix(a.bootLineStrength, b.bootLineStrength, t);
   out.releaseStrength = mix(a.releaseStrength, b.releaseStrength, t);
   out.trailGrowth = mix(a.trailGrowth, b.trailGrowth, t);
+  out.trajectoryDistortion = mix(a.trajectoryDistortion, b.trajectoryDistortion, t);
+  out.trajectoryAnomaly = mix(a.trajectoryAnomaly, b.trajectoryAnomaly, t);
+  out.mutationIntensity = mix(a.mutationIntensity, b.mutationIntensity, t);
+  out.glyphPoolMix = mix(a.glyphPoolMix, b.glyphPoolMix, t);
+  
+  out.trajectoryDistortion = mix(a.trajectoryDistortion, b.trajectoryDistortion, t);
+  out.trajectoryAnomaly = mix(a.trajectoryAnomaly, b.trajectoryAnomaly, t);
+  out.mutationIntensity = mix(a.mutationIntensity, b.mutationIntensity, t);
+  out.glyphPoolMix = mix(a.glyphPoolMix, b.glyphPoolMix, t);
 
   out.formWeights.face = mix(a.formWeights.face, b.formWeights.face, t);
   out.formWeights.figure = mix(a.formWeights.figure, b.formWeights.figure, t);
@@ -117,6 +135,10 @@ export const VOID_PRESET: RainPreset = {
     out.bootLineStrength = smoothstep(0.05, 0.35, p) * (1 - smoothstep(0.8, 1.0, p));
     out.releaseStrength = smoothstep(0.42, 0.86, p);
     out.trailGrowth = smoothstep(0.50, 0.95, p);
+    out.trajectoryDistortion = 0;
+    out.trajectoryAnomaly = 0;
+    out.mutationIntensity = 0.25;
+    out.glyphPoolMix = 0;
     noForm(out);
     noFaults(out);
   },
@@ -128,12 +150,18 @@ export const VOID_PRESET: RainPreset = {
  */
 export const CURRENT_PRESET: RainPreset = {
   id: 'current',
-  apply(out) {
+  apply(out, _runtime, p) {
     out.weight = 1;
     out.bootProgress = 1;
     out.bootLineStrength = 0;
     out.releaseStrength = 1;
     out.trailGrowth = 1;
+    
+    out.trajectoryDistortion = smoothstep(0.48, 0.62, p);
+    out.trajectoryAnomaly = smoothstep(0.5, 0.75, p) * 0.65;
+    out.mutationIntensity = mix(0.45, 0.7, smoothstep(0.4, 0.7, p));
+    out.glyphPoolMix = smoothstep(0.5, 0.8, p) * 0.4;
+    
     noForm(out);
     noFaults(out);
   },
@@ -149,6 +177,10 @@ export const FORM_PRESET: RainPreset = {
   id: 'form',
   apply(out, _runtime, p) {
     out.weight = 1;
+    out.trajectoryDistortion = 1;
+    out.trajectoryAnomaly = 0.8;
+    out.mutationIntensity = 0.7;
+    out.glyphPoolMix = 0.5;
     noFaults(out);
     const w = out.formWeights;
     w.face = smoothstep(0.1, 0.3, p) * (1 - smoothstep(0.74, 0.96, p) * 0.85);
@@ -167,6 +199,10 @@ export const CHAOS_PRESET: RainPreset = {
   id: 'chaos',
   apply(out, runtime, p) {
     out.weight = 1;
+    out.trajectoryDistortion = 1;
+    out.trajectoryAnomaly = 1;
+    out.mutationIntensity = clamp01(0.7 + smoothstep(0, 1, p) * 0.3);
+    out.glyphPoolMix = clamp01(0.5 + smoothstep(0, 1, p) * 0.5);
     const tension = runtime.tension;
     const c = out.chaos;
 
@@ -214,6 +250,10 @@ export const SILENCE_PRESET: RainPreset = {
   id: 'silence',
   apply(out, runtime, p) {
     out.weight = 1;
+    out.trajectoryDistortion = 1;
+    out.trajectoryAnomaly = 1;
+    out.mutationIntensity = 1;
+    out.glyphPoolMix = 1;
     const c = out.chaos;
 
     const beat = (runtime.time % 5.4) / 5.4;
@@ -247,6 +287,10 @@ export const TELEVISION_PRESET: RainPreset = {
   id: 'television',
   apply(out, runtime, p) {
     out.weight = 1;
+    out.trajectoryDistortion = 1;
+    out.trajectoryAnomaly = 1;
+    out.mutationIntensity = 1;
+    out.glyphPoolMix = 1;
     const c = out.chaos;
 
     // SILENCE handed over a frozen field, so the first fifth of this screen is

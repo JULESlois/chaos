@@ -1,11 +1,20 @@
-import { createRng, smoothstep } from '@/utils/math';
+import { createRng, smoothstep, hashUnit } from '@/utils/math';
 import { GlyphAtlas } from '../flow/glyph-atlas';
 import type { AsciiRuntime, AsciiViewport, QualityTier } from '../types';
 import { RainEngine } from './rain-engine';
 import { createFormSample, FormModulator } from './form-modulator';
 import { TemporalBuffer } from './temporal-buffer';
 import { RainRenderer } from './rain-renderer';
-import { configFor, gridFor, RAIN_CHARSET, RAIN_CHARSET_SPARSE } from './rain-presets';
+import { 
+  configFor, 
+  gridFor, 
+  RAIN_CHARSET, 
+  RAIN_CHARSET_SPARSE,
+  pickRainGlyph,
+  BOOT_LOCAL_INDICES
+} from './rain-presets';
+import { getTrajectoryType, sampleTrajectory } from './system/trajectory';
+import { sampleBootFault } from './system/boot-faults';
 import {
   clamp01,
   mix,
@@ -43,6 +52,10 @@ export function makeRainConfig(
     bootLineStrength?: number;
     releaseStrength?: number;
     trailGrowth?: number;
+    trajectoryDistortion?: number;
+    trajectoryAnomaly?: number;
+    mutationIntensity?: number;
+    glyphPoolMix?: number;
     debug?: boolean;
   },
 ): RainRenderConfig {
@@ -64,6 +77,10 @@ export function makeRainConfig(
     bootLineStrength: opts.bootLineStrength ?? 0,
     releaseStrength: opts.releaseStrength ?? 1,
     trailGrowth: opts.trailGrowth ?? 1,
+    trajectoryDistortion: opts.trajectoryDistortion ?? 0,
+    trajectoryAnomaly: opts.trajectoryAnomaly ?? 0,
+    mutationIntensity: opts.mutationIntensity ?? 0,
+    glyphPoolMix: opts.glyphPoolMix ?? 0,
     debug: opts.debug ?? false,
     frameId: 0,
   };
@@ -326,9 +343,11 @@ export class RainField {
   }
 
   private buildSamples(config: RainRenderConfig): number {
-    const { width, height, time, progress, pointer, reducedMotion } = config;
+    const { 
+      width, height, time, progress, pointer, reducedMotion,
+      trajectoryDistortion, trajectoryAnomaly, mutationIntensity, glyphPoolMix
+    } = config;
     const cell = this.cell;
-    const charsetLen = this.atlas.glyphCount;
     const px = pointer.x * width;
     const py = pointer.y * height;
     const pointerActive = pointer.active;
@@ -348,7 +367,6 @@ export class RainField {
 
     for (let i = 0; i < this.cols; i += 1) {
       const dir = this.engine.getDirection(i);
-      const speed = this.engine.getSpeed(i);
       const baseLength = this.engine.getLength(i);
       const bright = this.engine.getBrightness(i);
       const persist = this.engine.getPersistence(i);
@@ -365,15 +383,16 @@ export class RainField {
       const releaseAt = this.engine.getBootReleaseAt(i);
       const releaseDur = this.engine.getBootReleaseDuration(i);
       const drop = smoothstep(releaseAt, releaseAt + releaseDur, bootProgress);
+      const release = (config.releaseStrength ?? 1) * drop;
       const bootOffset = this.engine.getBootLineOffsetY(i);
 
       // Effective head position
-      const head = mix(lineY + bootOffset, simHead, drop);
+      const head = mix(lineY + bootOffset, simHead, release);
 
       // Effective trail length
       let effectiveLength = baseLength;
       let isBootLineOnly = false;
-      if (drop < 0.05 && bootLineStrength > 0) {
+      if (release < 0.05 && bootLineStrength > 0) {
         isBootLineOnly = true;
         effectiveLength = 1;
         // Edge taper for horizontal boot line
@@ -383,7 +402,7 @@ export class RainField {
           continue;
         }
       } else {
-        effectiveLength = Math.max(1, Math.round(baseLength * mix(0.12, 1, Math.pow(drop, 1.4)) * trailGrowth));
+        effectiveLength = Math.max(1, Math.round(baseLength * mix(0.12, 1, Math.pow(release, 1.4)) * trailGrowth));
       }
 
       // Non-regularity attributes
@@ -391,11 +410,7 @@ export class RainField {
       const driftAmp = this.engine.getDriftAmplitude(i);
       const driftFreq = this.engine.getDriftFrequency(i);
       const driftPhase = this.engine.getDriftPhase(i);
-      const curveSlope = this.engine.getCurveSlope(i);
-
       const denseBoost = this.formDensity[i]!;
-      const localSpeed = speed * this.formSpeed[i]!;
-
       // In form area, reduce drift amplitude so anatomy stays legible
       const driftVal = Math.sin(time * driftFreq + driftPhase) * driftAmp * (1 - denseBoost * 0.45) * cell;
       const baseX = (i + 0.5) * cell + laneOffset + driftVal;
@@ -407,13 +422,16 @@ export class RainField {
       const dropout = this.engine.getDropoutRate(i);
       const baseSize = this.engine.getBaseSize(i);
       const sizeVar = this.engine.getSizeVariance(i);
-      const clockRate = this.engine.getGlyphClockRate(i);
       const glyphPhase = this.engine.getGlyphPhase(i);
       const envType = this.engine.getEnvelopeType(i);
 
       const flickerRate = this.engine.getBootFlickerRate(i);
       const flickerPhase = this.engine.getBootFlickerPhase(i);
       const bootFlicker = isBootLineOnly ? (0.4 + 0.6 * Math.sin(time * flickerRate + flickerPhase)) : 1;
+      
+      const bootFault = isBootLineOnly ? sampleBootFault(time, i, this.seed, this.cols) : { alphaMod: 1, brightMod: 1, shiftX: 0, shiftY: 0, duplicate: false, scramble: false };
+      
+      const trajType = getTrajectoryType(this.seed, i);
 
       for (let t = 0; t < effectiveLength; t += 1) {
         if (count >= capacity) break;
@@ -464,19 +482,60 @@ export class RainField {
         if (reducedMotion) alpha *= 0.85;
         alpha *= weight;
         alpha = clamp01(alpha);
+
+        let faultOx = 0;
+        let faultOy = 0;
+        if (isBootLineOnly) {
+          faultOx = bootFault.shiftX * cell;
+          faultOy = bootFault.shiftY;
+          if (bootFault.scramble) {
+            glyphJitter += 1000;
+          }
+          if (bootFault.duplicate && t > 0) {
+             alpha *= 0.2;
+          }
+          alpha *= bootFault.alphaMod;
+          brightness *= bootFault.brightMod;
+        }
+
         if (alpha < 0.02) continue;
 
-        // Per-character independent tick & glyph
-        const tick = Math.floor(time * clockRate * (localSpeed / Math.max(1, speed)) + glyphPhase + t * 0.37 + glyphJitter);
+        const trailU = effectiveLength > 1 ? t / (effectiveLength - 1) : 0;
+        const trajX = sampleTrajectory(
+          trajType,
+          trailU,
+          time,
+          trajectoryDistortion * (1 - denseBoost * 0.45), // Reduce distortion in form areas
+          trajectoryAnomaly,
+          this.seed,
+          i,
+          cell
+        );
+
+        // Character changes over time
+        const holdDuration = mix(
+          this.engine.config.mutationMin,
+          this.engine.config.mutationMax,
+          hashUnit(this.seed ^ i ^ t)
+        );
+        const effectiveHold = mix(holdDuration, 0.05, mutationIntensity * (1 - denseBoost * 0.3)); // Slow down mutation in form areas
+        const tick = Math.floor((time + glyphPhase) / effectiveHold + glyphJitter);
+        
         const gSeedVal = hashUnit(this.seed ^ (i * 1237) ^ (t * 89) ^ tick);
-        const glyph = Math.floor(gSeedVal * charsetLen) % charsetLen;
+        
+        let glyph = 0;
+        if (isBootLineOnly) {
+           glyph = BOOT_LOCAL_INDICES[Math.floor(gSeedVal * BOOT_LOCAL_INDICES.length)];
+        } else {
+           glyph = pickRainGlyph(gSeedVal, glyphPoolMix);
+        }
 
         const curSizeVar = 1 + (hashUnit(this.seed ^ (i * 101) ^ (t * 31)) - 0.5) * sizeVar * (1 - denseBoost * 0.7);
-        const curveX = (row - this.rows * 0.5) * curveSlope * cell;
-
+        // Remove curveSlope entirely and rely on trajX for all displacement
+        
         const s = this.samples[count]!;
-        s.x = baseX + ox + curveX;
-        s.y = y;
+        s.x = baseX + ox + trajX + faultOx;
+        s.y = y + faultOy;
         s.column = i;
         s.row = row;
         s.trailIndex = t;
@@ -486,10 +545,11 @@ export class RainField {
         s.size = cell * baseSize * curSizeVar * (0.82 + form.depth * 0.5 + denseBoost * 0.12);
         s.scaleX = 1 + form.depth * 0.4;
         s.scaleY = 1 + form.depth * 0.18 + form.density * 0.1;
-        s.rotation = (gSeed - 0.5) * 0.06 + form.edge * 0.05;
+        s.rotation = (gSeed - 0.5) * 0.06 * trajectoryDistortion + form.edge * 0.05;
         s.maskValue = form.density;
         s.edgeValue = form.edge;
         s.depthValue = form.depth;
+
         count += 1;
       }
     }
@@ -574,15 +634,7 @@ export class RainField {
   }
 }
 
-function hashUnit(n: number): number {
-  let x = n >>> 0;
-  x ^= x >>> 16;
-  x = Math.imul(x, 0x45d9f3b);
-  x ^= x >>> 16;
-  x = Math.imul(x, 0x45d9f3b);
-  x ^= x >>> 16;
-  return (x >>> 0) / 4294967296;
-}
+
 
 function trailEnvelopeTyped(
   trailIndex: number,

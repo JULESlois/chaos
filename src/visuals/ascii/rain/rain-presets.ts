@@ -11,10 +11,59 @@ import { DEFAULT_RAIN_CONFIG, type RainConfig } from './rain-types';
  * shared glyph table so it reads as the same alphabet the rest of the piece
  * uses, just a sparser slice.
  */
-export const RAIN_CHARSET = makeCharset(".,'` :;/_-+*^|0 1ABCDEF@%#[ ]()");
+export const RAIN_CHARS = '.,:\'"`|/\\-_=+~^<>0123456789()[]{}!?@#$%&*·¦×÷±╱╲';
+export const RAIN_CHARSET = makeCharset(RAIN_CHARS);
+export const RAIN_CHARSET_SPARSE = makeCharset('.,:\'"`|/\\-_=+~^<>0123456789()[]{}!?@#$%&*');
 
-/** Subset for the very sparse environment (mobile / low tier). */
-export const RAIN_CHARSET_SPARSE = makeCharset(".,'` :;/-+*0 1ABCDEF%#()");
+export const BOOT_CHARS = '.:-_=+|01#%';
+export const BOOT_CHARSET = makeCharset(BOOT_CHARS);
+
+export interface WeightedGlyphGroup {
+  chars: string;
+  weight: number;
+}
+
+export const RAIN_GROUPS: WeightedGlyphGroup[] = [
+  { chars: '.,:\'"`', weight: 0.32 },
+  { chars: '|/\\-_=+~^<>', weight: 0.28 },
+  { chars: '0123456789', weight: 0.20 },
+  { chars: '()[]{}', weight: 0.10 },
+  { chars: '!?@#$%&*', weight: 0.08 },
+  { chars: '·¦×÷±╱╲', weight: 0.02 },
+];
+
+export const BOOT_LOCAL_INDICES = new Uint8Array(BOOT_CHARS.length);
+for (let i = 0; i < BOOT_CHARS.length; i++) {
+  BOOT_LOCAL_INDICES[i] = RAIN_CHARS.indexOf(BOOT_CHARS[i]!);
+}
+
+const RAIN_GROUP_INDICES: { indices: Uint8Array; weight: number }[] = RAIN_GROUPS.map((g) => {
+  const indices = new Uint8Array(g.chars.length);
+  for (let i = 0; i < g.chars.length; i++) {
+    indices[i] = RAIN_CHARS.indexOf(g.chars[i]!);
+  }
+  return { indices, weight: g.weight };
+});
+
+export function pickRainGlyph(seedVal: number, mix: number): number {
+  let totalWeight = 0;
+  for (let i = 0; i < RAIN_GROUP_INDICES.length; i++) {
+    const w = RAIN_GROUP_INDICES[i]!.weight;
+    totalWeight += (i >= 3) ? w * mix : w;
+  }
+  
+  let w = seedVal * totalWeight;
+  for (let i = 0; i < RAIN_GROUP_INDICES.length; i++) {
+    const group = RAIN_GROUP_INDICES[i]!;
+    const groupWeight = (i >= 3) ? group.weight * mix : group.weight;
+    if (w < groupWeight) {
+      const idx = Math.floor((w / groupWeight) * group.indices.length);
+      return group.indices[idx]!;
+    }
+    w -= groupWeight;
+  }
+  return 0; // Fallback
+}
 
 export interface RainGrid {
   cols: number;

@@ -86,3 +86,12 @@ export function wrap(value: number, range: number): number {
   const result = value % range;
   return result < 0 ? result + range : result;
 }
+export function hashUnit(n: number): number {
+  let x = n >>> 0;
+  x ^= x >>> 16;
+  x = Math.imul(x, 0x45d9f3b);
+  x ^= x >>> 16;
+  x = Math.imul(x, 0x45d9f3b);
+  x ^= x >>> 16;
+  return (x >>> 0) / 4294967296;
+}

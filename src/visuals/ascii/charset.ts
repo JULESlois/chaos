@@ -10,7 +10,7 @@
  * alphabet losing its composure, not as five different alphabets.
  */
 export const GLYPHS =
-  " .'`,:;·˙-_~=+*^|/\\<>()[]{}!?ilrctuvxzTLYJICOQ0123456789%&$#@█▓▒░ABDEF";
+  ' .\',:;"`·˙-_~=+*^|/\\<>()[]{}!?ilrctuvxzTLYJICOQ0123456789%&$#@█▓▒░ABDEF¦×÷±╱╲';
 
 /** Pre-split so `fillText` never receives a freshly allocated string. */
 export const GLYPH_STRINGS: readonly string[] = Array.from(GLYPHS);

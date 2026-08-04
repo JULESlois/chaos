@@ -70,7 +70,17 @@ export class RainRenderer {
       ctx.translate(s.x, s.y);
       ctx.rotate(s.rotation);
       ctx.scale(baseScale * s.scaleX, baseScale * s.scaleY);
-      ctx.drawImage(entry.canvas, -entry.cell / 2, -entry.cell / 2);
+      ctx.drawImage(
+        entry.canvas,
+        s.glyph * entry.cell,
+        0,
+        entry.cell,
+        entry.cell,
+        -entry.draw / 2,
+        -entry.draw / 2,
+        entry.draw,
+        entry.draw,
+      );
       ctx.restore();
     }
     ctx.globalAlpha = 1;

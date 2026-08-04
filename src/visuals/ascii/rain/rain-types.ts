@@ -142,6 +142,12 @@ export interface RainRenderConfig {
   bootLineStrength: number;
   releaseStrength: number;
   trailGrowth: number;
+
+  trajectoryDistortion: number;
+  trajectoryAnomaly: number;
+  mutationIntensity: number;
+  glyphPoolMix: number;
+
   /** Debug overlay of the form masks. */
   debug: boolean;
   /** Frame id, bumped each render, used by the shared signal surface. */

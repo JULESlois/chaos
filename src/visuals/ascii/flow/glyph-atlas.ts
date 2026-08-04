@@ -1,3 +1,4 @@
+import { GLYPH_STRINGS } from '../charset';
 import { PINK_STOPS } from '../palette';
 
 /**
@@ -74,7 +75,8 @@ export class GlyphAtlas {
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
           for (let g = 0; g < this.charset.length; g += 1) {
-            const char = String.fromCharCode(this.charset[g]!);
+            const globalGlyphIndex = this.charset[g]!;
+            const char = GLYPH_STRINGS[globalGlyphIndex]!;
             ctx.fillText(char, g * cell + cell / 2, cell / 2);
           }
         }
