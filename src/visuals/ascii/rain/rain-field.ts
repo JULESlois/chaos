@@ -1,4 +1,4 @@
-import { createRng, smoothstep, hashUnit } from '@/utils/math';
+import { createRng, smoothstep } from '@/utils/math';
 import { GlyphAtlas } from '../flow/glyph-atlas';
 import type { AsciiRuntime, AsciiViewport, QualityTier } from '../types';
 import { RainEngine } from './rain-engine';
@@ -383,16 +383,15 @@ export class RainField {
       const releaseAt = this.engine.getBootReleaseAt(i);
       const releaseDur = this.engine.getBootReleaseDuration(i);
       const drop = smoothstep(releaseAt, releaseAt + releaseDur, bootProgress);
-      const release = (config.releaseStrength ?? 1) * drop;
       const bootOffset = this.engine.getBootLineOffsetY(i);
 
       // Effective head position
-      const head = mix(lineY + bootOffset, simHead, release);
+      const head = mix(lineY + bootOffset, simHead, drop);
 
       // Effective trail length
       let effectiveLength = baseLength;
       let isBootLineOnly = false;
-      if (release < 0.05 && bootLineStrength > 0) {
+      if (drop < 0.05 && bootLineStrength > 0) {
         isBootLineOnly = true;
         effectiveLength = 1;
         // Edge taper for horizontal boot line
@@ -402,7 +401,7 @@ export class RainField {
           continue;
         }
       } else {
-        effectiveLength = Math.max(1, Math.round(baseLength * mix(0.12, 1, Math.pow(release, 1.4)) * trailGrowth));
+        effectiveLength = Math.max(1, Math.round(baseLength * mix(0.12, 1, Math.pow(drop, 1.4)) * trailGrowth));
       }
 
       // Non-regularity attributes
@@ -410,7 +409,9 @@ export class RainField {
       const driftAmp = this.engine.getDriftAmplitude(i);
       const driftFreq = this.engine.getDriftFrequency(i);
       const driftPhase = this.engine.getDriftPhase(i);
+
       const denseBoost = this.formDensity[i]!;
+
       // In form area, reduce drift amplitude so anatomy stays legible
       const driftVal = Math.sin(time * driftFreq + driftPhase) * driftAmp * (1 - denseBoost * 0.45) * cell;
       const baseX = (i + 0.5) * cell + laneOffset + driftVal;
@@ -428,9 +429,8 @@ export class RainField {
       const flickerRate = this.engine.getBootFlickerRate(i);
       const flickerPhase = this.engine.getBootFlickerPhase(i);
       const bootFlicker = isBootLineOnly ? (0.4 + 0.6 * Math.sin(time * flickerRate + flickerPhase)) : 1;
-      
+
       const bootFault = isBootLineOnly ? sampleBootFault(time, i, this.seed, this.cols) : { alphaMod: 1, brightMod: 1, shiftX: 0, shiftY: 0, duplicate: false, scramble: false };
-      
       const trajType = getTrajectoryType(this.seed, i);
 
       for (let t = 0; t < effectiveLength; t += 1) {
@@ -531,7 +531,6 @@ export class RainField {
         }
 
         const curSizeVar = 1 + (hashUnit(this.seed ^ (i * 101) ^ (t * 31)) - 0.5) * sizeVar * (1 - denseBoost * 0.7);
-        // Remove curveSlope entirely and rely on trajX for all displacement
         
         const s = this.samples[count]!;
         s.x = baseX + ox + trajX + faultOx;
@@ -634,7 +633,15 @@ export class RainField {
   }
 }
 
-
+function hashUnit(n: number): number {
+  let x = n >>> 0;
+  x ^= x >>> 16;
+  x = Math.imul(x, 0x45d9f3b);
+  x ^= x >>> 16;
+  x = Math.imul(x, 0x45d9f3b);
+  x ^= x >>> 16;
+  return (x >>> 0) / 4294967296;
+}
 
 function trailEnvelopeTyped(
   trailIndex: number,

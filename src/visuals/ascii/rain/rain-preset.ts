@@ -29,7 +29,6 @@ export interface RainParams {
   trajectoryAnomaly: number;
   mutationIntensity: number;
   glyphPoolMix: number;
-
   formWeights: FormWeights;
   chaos: ChaosFaults;
 }
@@ -83,10 +82,6 @@ export function blendRainParams(out: RainParams, a: RainParams, b: RainParams, t
   out.bootLineStrength = mix(a.bootLineStrength, b.bootLineStrength, t);
   out.releaseStrength = mix(a.releaseStrength, b.releaseStrength, t);
   out.trailGrowth = mix(a.trailGrowth, b.trailGrowth, t);
-  out.trajectoryDistortion = mix(a.trajectoryDistortion, b.trajectoryDistortion, t);
-  out.trajectoryAnomaly = mix(a.trajectoryAnomaly, b.trajectoryAnomaly, t);
-  out.mutationIntensity = mix(a.mutationIntensity, b.mutationIntensity, t);
-  out.glyphPoolMix = mix(a.glyphPoolMix, b.glyphPoolMix, t);
   
   out.trajectoryDistortion = mix(a.trajectoryDistortion, b.trajectoryDistortion, t);
   out.trajectoryAnomaly = mix(a.trajectoryAnomaly, b.trajectoryAnomaly, t);

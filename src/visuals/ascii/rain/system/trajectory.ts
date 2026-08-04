@@ -63,13 +63,14 @@ export function sampleTrajectory(
       xOffset = Math.sin(trailU * freq * 2 + time * freq + phase) * amp * cell * 1.5;
       break;
 
-    case 'kink':
+    case 'kink': {
       // Abrupt angle at a specific point
       const kinkPoint = hashUnit(seed ^ column ^ 19);
       if (trailU > kinkPoint) {
         xOffset = (trailU - kinkPoint) * amp * cell * 3 * (hashUnit(seed ^ column ^ 23) > 0.5 ? 1 : -1);
       }
       break;
+    }
 
     case 'hook':
       if (trailU > 0.7) { // tail hook
@@ -77,7 +78,7 @@ export function sampleTrajectory(
       }
       break;
 
-    case 'broken':
+    case 'broken': {
       // Segmented
       const breakPoint1 = 0.33 + hashUnit(seed ^ column ^ 31) * 0.1;
       const breakPoint2 = 0.66 + hashUnit(seed ^ column ^ 37) * 0.1;
@@ -87,6 +88,7 @@ export function sampleTrajectory(
         xOffset = -amp * cell * 1.5;
       }
       break;
+    }
 
     case 'reverse-fragment':
       // Only a short fragment has an offset
