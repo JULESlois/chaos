@@ -26,7 +26,7 @@ npm run dev        # http://localhost:5173
 npm run build      # tsc -b + production bundle
 npm run preview
 npm run lint
-npm run test       # 255 tests
+npm run test       # 275 tests
 npm run typecheck
 ```
 
@@ -87,6 +87,24 @@ shoulders arrive.
 Two tests carry the claim: under full form weights **no column has stalled**,
 and the field draws **fewer** characters than an open one, because void removes
 rain and nothing adds it.
+
+### Phosphor imprint — the pattern persists, then weathers
+
+`src/visuals/ascii/rain/shape/` adds a persistent layer on top of the falling
+field: characters passing through a target region deposit a small amount of
+afterglow energy into that region's slots, the afterglow accumulates into a
+legible shape, is refreshed by the rain still falling through it, and finally
+erodes — each slot releases as a falling "sand" glyph that becomes ordinary
+rain again. The lifecycle (`rain → premonition → imprinting → holding →
+eroding → released`) is a damped state machine in `shape-transition.ts`,
+driven by the same scroll timeline as everything else.
+
+Slots are flat `TypedArray`s with a per-column spatial index
+(`shape-slots.ts`), so a rain glyph can find its neighbouring slots without
+scanning the field. Sources (`text-source`, `face-source`, `hand-source`) are
+rasterised or procedural point sets — no assets. Like the rest of the rain
+system, every choice that looks random is a hash of the field seed, so the
+whole imprint stays reproducible: same seed, same afterglow, same erosion.
 
 ### CHAOS breaks the medium
 
