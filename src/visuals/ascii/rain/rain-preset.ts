@@ -125,9 +125,10 @@ function noFaults(out: RainParams): void {
 export const VOID_PRESET: RainPreset = {
   id: 'void',
   apply(out, _runtime, p) {
-    out.weight = smoothstep(0.02, 0.20, p);
+    const subtlePulse = 0.5 + 0.5 * Math.sin(p * Math.PI);
+    out.weight = 1;
     out.bootProgress = p;
-    out.bootLineStrength = smoothstep(0.05, 0.35, p) * (1 - smoothstep(0.8, 1.0, p));
+    out.bootLineStrength = (0.82 + 0.18 * subtlePulse) * (1 - smoothstep(0.8, 1.0, p));
     out.releaseStrength = smoothstep(0.42, 0.86, p);
     out.trailGrowth = smoothstep(0.50, 0.95, p);
     out.trajectoryDistortion = 0;
@@ -152,8 +153,22 @@ export const CURRENT_PRESET: RainPreset = {
     out.releaseStrength = 1;
     out.trailGrowth = 1;
     
-    out.trajectoryDistortion = smoothstep(0.48, 0.62, p);
-    out.trajectoryAnomaly = smoothstep(0.5, 0.75, p) * 0.65;
+    // Anomaly event in middle
+    let anomaly = 0;
+    let dist = 0;
+    if (p > 0.45 && p <= 0.52) {
+      const sub = (p - 0.45) / 0.07;
+      anomaly = sub * 0.15;
+      dist = sub * 0.2;
+    } else if (p > 0.52) {
+      const sub = (p - 0.52) / 0.13;
+      anomaly = mix(0.15, 0.65, clamp01(sub));
+      dist = mix(0.2, 1, clamp01(sub));
+    }
+    
+    out.trajectoryDistortion = dist;
+    out.trajectoryAnomaly = anomaly;
+    
     out.mutationIntensity = mix(0.45, 0.7, smoothstep(0.4, 0.7, p));
     out.glyphPoolMix = smoothstep(0.5, 0.8, p) * 0.4;
     

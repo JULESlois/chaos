@@ -1,4 +1,4 @@
-import { hashUnit } from '../../../../utils/math';
+import { hash01 as hashUnit } from '../../../../utils/math';
 
 export type TrajectoryType =
   | 'straight'

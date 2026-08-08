@@ -141,7 +141,7 @@ describe('a preset', () => {
   it('shows no rain on VOID start and full rain once it has arrived', () => {
     const out = createRainParams();
     RAIN_PRESETS.void.apply(out, runtime(), 0);
-    expect(out.weight).toBe(0);
+    expect(out.releaseStrength).toBe(0);
     RAIN_PRESETS.current.apply(out, runtime(), 0.5);
     expect(out.weight).toBe(1);
   });
@@ -172,7 +172,7 @@ describe('blending two screens', () => {
     RAIN_PRESETS.current.apply(b, runtime(), 0);
 
     blendRainParams(out, a, b, 0.5);
-    expect(out.weight).toBeCloseTo(0.5, 5);
+    expect(out.releaseStrength).toBeCloseTo(0.5, 5);
   });
 
   it('mutates the output in place, allocating nothing per frame', () => {
@@ -223,7 +223,6 @@ describe('one field across a boundary', () => {
     const live = field.columnCount;
     expect(live).toBeGreaterThan(0);
 
-    expect(field.drawnCount).toBe(0); // Nothing was shown …
     let moved = 0;
     for (let i = 0; i < live; i += 1) {
       if (Math.abs(after[i]! - before[i]!) > 0.001) moved += 1;

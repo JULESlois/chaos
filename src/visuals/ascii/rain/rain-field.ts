@@ -5,6 +5,8 @@ import { RainEngine } from './rain-engine';
 import { createFormSample, FormModulator } from './form-modulator';
 import { TemporalBuffer } from './temporal-buffer';
 import { RainRenderer } from './rain-renderer';
+import { ShapeField } from './shape/shape-field';
+import { getShapeSource } from './shape/shape-source';
 import { 
   configFor, 
   gridFor, 
@@ -102,6 +104,7 @@ export class RainField {
   private readonly modulator = new FormModulator();
   private readonly buffer: TemporalBuffer;
   private readonly renderer: RainRenderer;
+  readonly shapeField: ShapeField;
 
   private cell = 13;
   private cols = 1;
@@ -140,6 +143,7 @@ export class RainField {
     this.delayFrames = new Float32Array(2048);
     this.formSpeed = new Float32Array(2048).fill(1);
     this.formDensity = new Float32Array(2048);
+    this.shapeField = new ShapeField(4096, this.seed);
   }
 
   get engineInstance(): RainEngine {
@@ -193,6 +197,13 @@ export class RainField {
     this.engine.populate();
     this.buffer.resize(this.cols);
     this.ensureSamples(this.cols, this.engine.maxLength());
+    this.shapeField.loadSource(
+      getShapeSource('text', 'NODE 07', this.cols, this.rows),
+      this.cols,
+      this.rows,
+      0,
+      0
+    );
     void sparse;
   }
 
@@ -260,6 +271,19 @@ export class RainField {
     const count = this.buildSamples(config);
     this.lastCount = count;
     this.renderer.render(ctx, this.samples, count);
+
+    // Update and render Phosphor Imprint persistent state layer
+    const activeSamples = this.samples.slice(0, count);
+    this.shapeField.update(
+      config.progress,
+      config.delta,
+      activeSamples,
+      this.cols,
+      this.rows,
+      config.formWeights,
+      config.time
+    );
+    this.renderer.renderShapeSlots(ctx, this.shapeField.slots, this.cell);
 
     if (this.debug) this.drawDebug(ctx, config);
   }
@@ -382,18 +406,22 @@ export class RainField {
       // Boot line release curve per column
       const releaseAt = this.engine.getBootReleaseAt(i);
       const releaseDur = this.engine.getBootReleaseDuration(i);
-      const drop = smoothstep(releaseAt, releaseAt + releaseDur, bootProgress);
+      const drop = config.releaseStrength! * smoothstep(releaseAt, releaseAt + releaseDur, bootProgress);
       const bootOffset = this.engine.getBootLineOffsetY(i);
 
       // Effective head position
       const head = mix(lineY + bootOffset, simHead, drop);
+
+      const bootFault = (drop < 0.05 && bootLineStrength > 0)
+        ? sampleBootFault(time, i, this.seed, this.cols)
+        : { alphaMod: 1, brightMod: 1, shiftX: 0, shiftY: 0, duplicate: false, scramble: false };
 
       // Effective trail length
       let effectiveLength = baseLength;
       let isBootLineOnly = false;
       if (drop < 0.05 && bootLineStrength > 0) {
         isBootLineOnly = true;
-        effectiveLength = 1;
+        effectiveLength = bootFault.duplicate ? 2 : 1;
         // Edge taper for horizontal boot line
         const normCol = i / Math.max(1, this.cols);
         const edgeTaper = smoothstep(0.04, 0.18, normCol) * (1 - smoothstep(0.82, 0.96, normCol));
@@ -413,8 +441,9 @@ export class RainField {
       const denseBoost = this.formDensity[i]!;
 
       // In form area, reduce drift amplitude so anatomy stays legible
-      const driftVal = Math.sin(time * driftFreq + driftPhase) * driftAmp * (1 - denseBoost * 0.45) * cell;
-      const baseX = (i + 0.5) * cell + laneOffset + driftVal;
+      const straightJitter = laneOffset * 0.12;
+      const driftVal = trajectoryDistortion * Math.sin(time * driftFreq + driftPhase) * driftAmp * (1 - denseBoost * 0.45) * cell;
+      const baseX = (i + 0.5) * cell + straightJitter + driftVal;
 
       if (baseX < -cell * 2 || baseX > width + cell * 2) continue;
       const nx = clamp01(baseX / width);
@@ -430,7 +459,6 @@ export class RainField {
       const flickerPhase = this.engine.getBootFlickerPhase(i);
       const bootFlicker = isBootLineOnly ? (0.4 + 0.6 * Math.sin(time * flickerRate + flickerPhase)) : 1;
 
-      const bootFault = isBootLineOnly ? sampleBootFault(time, i, this.seed, this.cols) : { alphaMod: 1, brightMod: 1, shiftX: 0, shiftY: 0, duplicate: false, scramble: false };
       const trajType = getTrajectoryType(this.seed, i);
 
       for (let t = 0; t < effectiveLength; t += 1) {
@@ -444,6 +472,11 @@ export class RainField {
         const row = this.wrapRow(head - dir * t * spacing);
         const y = (row + 0.5) * cell;
         if (y > height + cell * 2) continue;
+
+        // Skip rain rendering on grid cells occupied by shape pattern slots to prevent overlap
+        if (this.shapeField.slots.isOccupiedAt(i, row)) {
+          continue;
+        }
 
         const env = trailEnvelopeTyped(t, effectiveLength, persist, envType);
         if (env <= 0.01 && !isBootLineOnly) continue;
@@ -475,7 +508,8 @@ export class RainField {
         const flicker = 0.85 + 0.15 * Math.sin((time * (1 + mut * 2) + phase * 12 + t * 0.7) * 3.1);
         brightness = clamp01(brightness * flicker);
 
-        let alpha = env * (0.3 + form.depth * 0.42 + form.density * 0.2);
+        let alpha = env * mix(0.48, 0.78, bright);
+        alpha *= 1.0 + form.depth * 0.4 + form.density * 0.2;
         if (isBootLineOnly) alpha = bootFlicker * bootLineStrength;
         alpha *= voidCut;
         alpha *= 0.45 + 0.55 * bright;
@@ -542,9 +576,9 @@ export class RainField {
         s.brightness = brightness;
         s.alpha = alpha;
         s.size = cell * baseSize * curSizeVar * (0.82 + form.depth * 0.5 + denseBoost * 0.12);
-        s.scaleX = 1 + form.depth * 0.4;
-        s.scaleY = 1 + form.depth * 0.18 + form.density * 0.1;
-        s.rotation = (gSeed - 0.5) * 0.06 * trajectoryDistortion + form.edge * 0.05;
+        s.scaleX = 1;
+        s.scaleY = 1;
+        s.rotation = 0;
         s.maskValue = form.density;
         s.edgeValue = form.edge;
         s.depthValue = form.depth;

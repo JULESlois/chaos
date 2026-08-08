@@ -11,9 +11,9 @@ import { DEFAULT_RAIN_CONFIG, type RainConfig } from './rain-types';
  * shared glyph table so it reads as the same alphabet the rest of the piece
  * uses, just a sparser slice.
  */
-export const RAIN_CHARS = '.,:\'"`|/\\-_=+~^<>0123456789()[]{}!?@#$%&*·¦×÷±╱╲';
+export const RAIN_CHARS = '.,:;\'"`|/\\-_=+~^<>0123456789()[]{}!?@#$%&*·¦×÷±╱╲';
 export const RAIN_CHARSET = makeCharset(RAIN_CHARS);
-export const RAIN_CHARSET_SPARSE = makeCharset('.,:\'"`|/\\-_=+~^<>0123456789()[]{}!?@#$%&*');
+export const RAIN_CHARSET_SPARSE = makeCharset('.,:;\'"`|/\\-_=+~^<>0123456789()[]{}!?@#$%&*');
 
 export const BOOT_CHARS = '.:-_=+|01#%';
 export const BOOT_CHARSET = makeCharset(BOOT_CHARS);
@@ -24,12 +24,12 @@ export interface WeightedGlyphGroup {
 }
 
 export const RAIN_GROUPS: WeightedGlyphGroup[] = [
-  { chars: '.,:\'"`', weight: 0.32 },
-  { chars: '|/\\-_=+~^<>', weight: 0.28 },
-  { chars: '0123456789', weight: 0.20 },
-  { chars: '()[]{}', weight: 0.10 },
-  { chars: '!?@#$%&*', weight: 0.08 },
-  { chars: '·¦×÷±╱╲', weight: 0.02 },
+  { chars: '|/\\-_=+;:', weight: 0.45 },
+  { chars: '0123456789', weight: 0.25 },
+  { chars: '.,\'"`~^<>', weight: 0.20 },
+  { chars: '()[]{}', weight: 0.05 },
+  { chars: '!?@#$%&*', weight: 0.04 },
+  { chars: '·¦×÷±╱╲', weight: 0.01 },
 ];
 
 export const BOOT_LOCAL_INDICES = new Uint8Array(BOOT_CHARS.length);
@@ -72,8 +72,8 @@ export interface RainGrid {
   cell: number;
 }
 
-const DESKTOP_CELL = 13;
-const MOBILE_CELL = 12;
+const DESKTOP_CELL = 16;
+const MOBILE_CELL = 15;
 
 function clamp(v: number, lo: number, hi: number): number {
   return v < lo ? lo : v > hi ? hi : v;
@@ -81,7 +81,6 @@ function clamp(v: number, lo: number, hi: number): number {
 
 /**
  * Column/row count derived from the viewport and the spec's suggested grids.
- * Desktop: 80–150 columns, 45–90 rows. Mobile: 35–70 columns, 45–85 rows.
  */
 export function gridFor(width: number, height: number, quality: QualityTier): RainGrid {
   const narrow = width < 768;
@@ -89,11 +88,11 @@ export function gridFor(width: number, height: number, quality: QualityTier): Ra
   let cols: number;
   let rows: number;
   if (narrow) {
-    cols = clamp(Math.round(width / 9), 35, 70);
-    rows = clamp(Math.round(height / 11), 45, 85);
+    cols = clamp(Math.round(width / 13), 24, 60);
+    rows = clamp(Math.round(height / 14), 35, 75);
   } else {
-    cols = clamp(Math.round(width / 12), 80, 150);
-    rows = clamp(Math.round(height / 14), 45, 90);
+    cols = clamp(Math.round(width / 15), 60, 120);
+    rows = clamp(Math.round(height / 16), 40, 80);
   }
   // Low tiers thin the grid further.
   if (quality === 2) {
@@ -105,7 +104,7 @@ export function gridFor(width: number, height: number, quality: QualityTier): Ra
 
 export const DESKTOP_RAIN_CONFIG: RainConfig = {
   ...DEFAULT_RAIN_CONFIG,
-  reverseRatio: 0.09,
+  reverseRatio: 0,
   speedMin: 6,
   speedMax: 17,
   lengthMin: 8,
@@ -114,7 +113,7 @@ export const DESKTOP_RAIN_CONFIG: RainConfig = {
 
 export const MOBILE_RAIN_CONFIG: RainConfig = {
   ...DEFAULT_RAIN_CONFIG,
-  reverseRatio: 0.11,
+  reverseRatio: 0,
   speedMin: 5,
   speedMax: 13,
   lengthMin: 7,

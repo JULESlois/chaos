@@ -1,6 +1,8 @@
 import type { GlyphAtlas } from '../flow/glyph-atlas';
 import type { RainGlyphSample } from './rain-types';
 import { clamp01 } from './rain-types';
+import type { ShapeSlots } from './shape/shape-slots';
+import { SlotState } from './shape/shape-types';
 
 const SIZE_TIERS = [9, 13, 20, 32, 56] as const;
 
@@ -73,6 +75,53 @@ export class RainRenderer {
       ctx.drawImage(
         entry.canvas,
         s.glyph * entry.cell,
+        0,
+        entry.cell,
+        entry.cell,
+        -entry.draw / 2,
+        -entry.draw / 2,
+        entry.draw,
+        entry.draw,
+      );
+      ctx.restore();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  renderShapeSlots(ctx: CanvasRenderingContext2D, slots: ShapeSlots, cellPx: number): void {
+    if (slots.count === 0) return;
+    this.atlas.ensure();
+    let lastAlpha = -1;
+    const count = slots.count;
+
+    for (let i = 0; i < count; i += 1) {
+      if (slots.state[i] === SlotState.EMPTY) continue;
+      const energy = slots.energy[i];
+      if (energy < 0.02) continue;
+
+      const x = (slots.currentX[i] + 0.5) * cellPx;
+      const y = (slots.currentY[i] + 0.5) * cellPx;
+
+      const lumIndex = luminanceIndex(0.6 + energy * 0.4);
+      const sizeIndex = nearestTier(cellPx);
+      const entry = this.atlas.entry(sizeIndex, lumIndex);
+      if (!entry) continue;
+
+      const alpha = clamp01(energy);
+      if (alpha !== lastAlpha) {
+        ctx.globalAlpha = alpha;
+        lastAlpha = alpha;
+      }
+
+      const native = SIZE_TIERS[sizeIndex]!;
+      const baseScale = native > 0 ? cellPx / native : 1;
+
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.scale(baseScale, baseScale);
+      ctx.drawImage(
+        entry.canvas,
+        (slots.glyph[i] % this.atlas.glyphCount) * entry.cell,
         0,
         entry.cell,
         entry.cell,

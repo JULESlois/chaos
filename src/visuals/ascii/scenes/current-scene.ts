@@ -1,5 +1,5 @@
 import { CHARSETS } from '../charset';
-import { FlowRenderer, type FlowRenderConfig } from '../flow/flow-renderer';
+import { FlowRenderer } from '../flow/flow-renderer';
 import type { AsciiRuntime, AsciiScene } from '../types';
 
 /**
@@ -32,28 +32,9 @@ export class CurrentScene implements AsciiScene {
     // Rain parameters live in CURRENT_PRESET.
   }
 
-  render(runtime: AsciiRuntime): void {
-    const reduced = runtime.reducedMotion;
-
-    // Faint ribbon accent — kept well below the rain so it never reads as a
-    // second picture. It also freezes under reduced motion like the rain.
-    const ribbonConfig: FlowRenderConfig = {
-      width: runtime.view.width,
-      height: runtime.view.height,
-      dpr: runtime.view.dpr,
-      time: reduced ? 6 : runtime.time,
-      progress: 0.55,
-      seed: 1204,
-      quality: runtime.quality,
-      pointer: { x: 0.5, y: 0.5, active: false },
-      scrollVelocity: 0,
-      density: 0.5,
-      sizeScale: 0.9,
-      layerIntensity: { background: 0.08, body: 0.18, foreground: 0.26 },
-      debug: false,
-      delta: runtime.delta,
-    };
-    this.ribbon.render(runtime.ctx, runtime.view, ribbonConfig);
+  render(_runtime: AsciiRuntime): void {
+    // Faint ribbon accent removed.
+    // The engine's rain field handles the full visualization.
   }
 
   exit(): void {

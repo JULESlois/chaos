@@ -71,7 +71,7 @@ export class GlyphAtlas {
         if (ctx) {
           ctx.clearRect(0, 0, canvas.width, canvas.height);
           ctx.fillStyle = color;
-          ctx.font = `${sizeTier}px ${CANVAS_FONT}`;
+          ctx.font = `600 ${sizeTier}px ${CANVAS_FONT}`;
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
           for (let g = 0; g < this.charset.length; g += 1) {
