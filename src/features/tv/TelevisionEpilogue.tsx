@@ -62,6 +62,7 @@ export function TelevisionEpilogue({
   const { controller, snapshot } = useTVController({
     width: resolution.width,
     height: resolution.height,
+    initialPowered: ((store.current.progress - APPROACH_FROM) / (APPROACH_TO - APPROACH_FROM)) > 0.5,
     onDiscoverUnlisted: onUnlisted,
   });
 
@@ -72,7 +73,7 @@ export function TelevisionEpilogue({
    * store is already advanced once per frame by the ASCII engine, so copying
    * its value into a second ref would only add a way for the two to disagree.
    */
-  const progressRef = useMemo<LiveValue<number>>(
+  const rawProgressRef = useMemo<LiveValue<number>>(
     () => ({
       get current(): number {
         const span = APPROACH_TO - APPROACH_FROM;
@@ -80,6 +81,18 @@ export function TelevisionEpilogue({
       },
     }),
     [store],
+  );
+
+  const snapStateRef = useRef<'signal' | 'powering-off' | 'tv' | 'powering-on'>('signal');
+  const snapTargetRef = useRef(0);
+
+  const progressRef = useMemo<LiveValue<number>>(
+    () => ({
+      get current(): number {
+        return snapTargetRef.current;
+      },
+    }),
+    [],
   );
 
   const tensionRef = useMemo<LiveValue<number>>(
@@ -126,7 +139,50 @@ export function TelevisionEpilogue({
 
     const measure = (): void => {
       queued = false;
-      controller.store.setProgress(progressRef.current);
+      const raw = rawProgressRef.current;
+      const state = snapStateRef.current;
+
+      if (raw > 0.05 && state === 'signal') {
+        snapStateRef.current = 'powering-off';
+        
+        // 1. ASCII collapses to a bright line
+        signalBus.emit('scene:crt-power-off');
+        
+        // 2. TV turns on immediately to serve as the flash
+        controller.store.bootPowerOnSequence();
+        
+        // 3. Move camera into the TV right after the line forms
+        setTimeout(() => {
+          snapTargetRef.current = 1;
+          controller.store.setProgress(1);
+          
+          setTimeout(() => {
+            snapStateRef.current = 'tv';
+          }, 600);
+        }, 150);
+      } else if (raw < 0.05 && state === 'tv') {
+        snapStateRef.current = 'powering-on';
+        
+        // 1. TV collapses to a bright line
+        controller.store.setPower(false);
+        
+        // 2. Wait for TV to collapse (~150ms)
+        setTimeout(() => {
+          // 3. Move camera out
+          snapTargetRef.current = 0;
+          controller.store.setProgress(0); 
+          
+          // 4. As soon as the camera finishes zooming out, expand ASCII
+          setTimeout(() => {
+            signalBus.emit('scene:crt-power-on');
+            setTimeout(() => {
+              snapStateRef.current = 'signal';
+            }, 600);
+          }, 500); 
+        }, 150);
+      } else if (state === 'signal' || state === 'tv') {
+        controller.store.setProgress(snapTargetRef.current);
+      }
     };
     const request = (): void => {
       if (queued) return;
@@ -142,7 +198,7 @@ export function TelevisionEpilogue({
       window.removeEventListener('scroll', request);
       window.removeEventListener('resize', request);
     };
-  }, [controller, progressRef]);
+  }, [controller, rawProgressRef]);
 
   // A structural failure large enough to be heard also rips the picture.
   useEffect(() => {

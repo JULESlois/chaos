@@ -13,6 +13,78 @@
   /* The field is scenery. Every pointer event belongs to the document
      underneath it, or to the television on top of it. */
   pointer-events: none;
+  transform-origin: center center;
+}
+
+.stage.crt-power-off {
+  animation: crt-power-off 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.stage.crt-power-on {
+  animation: crt-power-on 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes crt-power-off {
+  0% {
+    transform: scale(1, 1);
+    filter: brightness(1) drop-shadow(0 0 0px transparent);
+    opacity: 1;
+  }
+  35% {
+    transform: scale(1, 0.002);
+    filter: brightness(3.5) drop-shadow(0 0 10px rgba(255, 255, 255, 0.8)) drop-shadow(0 0 22px rgba(255, 255, 255, 0.8));
+    background-color: #ffffff;
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1, 0.002);
+    filter: brightness(4) drop-shadow(0 0 12px #ffffff) drop-shadow(0 0 28px #ffffff);
+    background-color: #ffffff;
+    opacity: 1;
+  }
+  75% {
+    transform: scale(1, 0.002);
+    filter: brightness(5) drop-shadow(0 0 14px #ffffff) drop-shadow(0 0 30px #ffffff);
+    background-color: #ffffff;
+    opacity: 1;
+  }
+  85% {
+    transform: scale(1, 0.002);
+    filter: brightness(0);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1, 0.002);
+    filter: brightness(0);
+    opacity: 0;
+  }
+}
+
+@keyframes crt-power-on {
+  0% {
+    transform: scale(1, 0.002);
+    filter: brightness(5) drop-shadow(0 0 14px #ffffff) drop-shadow(0 0 30px #ffffff);
+    background-color: #ffffff;
+    opacity: 1;
+  }
+  40% {
+    transform: scale(1, 0.002);
+    filter: brightness(4) drop-shadow(0 0 12px #ffffff) drop-shadow(0 0 28px #ffffff);
+    background-color: #ffffff;
+    opacity: 1;
+  }
+  55% {
+    transform: scale(1, 0.002);
+    filter: brightness(3.5) drop-shadow(0 0 10px rgba(255, 255, 255, 0.8)) drop-shadow(0 0 22px rgba(255, 255, 255, 0.8));
+    background-color: #ffffff;
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1, 1);
+    filter: brightness(1);
+    background-color: var(--void);
+    opacity: 1;
+  }
 }
 
 .experience {

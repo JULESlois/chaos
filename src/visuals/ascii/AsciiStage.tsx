@@ -1,6 +1,7 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ExperienceStore } from '@/experience/experience-store';
 import type { TensionController } from '@/systems/tension/tension';
+import { signalBus } from '@/utils/signal-bus';
 import { AsciiEngine } from './AsciiEngine';
 import type { QualityTier } from './types';
 
@@ -31,6 +32,16 @@ export function AsciiStage({
   reducedMotion,
 }: AsciiStageProps): React.JSX.Element {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [crtState, setCrtState] = useState<'on' | 'off'>('on');
+
+  useEffect(() => {
+    const unsubOff = signalBus.on('scene:crt-power-off', () => setCrtState('off'));
+    const unsubOn = signalBus.on('scene:crt-power-on', () => setCrtState('on'));
+    return () => {
+      unsubOff();
+      unsubOn();
+    };
+  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -50,5 +61,11 @@ export function AsciiStage({
     return () => engine.dispose();
   }, [store, tension, quality, maxDpr, reducedMotion]);
 
-  return <canvas ref={canvasRef} className="stage" aria-hidden="true" />;
+  return (
+    <canvas 
+      ref={canvasRef} 
+      className={`stage crt-power-${crtState}`} 
+      aria-hidden="true" 
+    />
+  );
 }

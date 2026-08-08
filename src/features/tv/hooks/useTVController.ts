@@ -33,6 +33,7 @@ export interface TVController {
 interface ControllerOptions {
   width: number;
   height: number;
+  initialPowered?: boolean;
   /** Called the first time the viewer lands on the unlisted channel. */
   onDiscoverUnlisted: () => void;
 }
@@ -40,10 +41,11 @@ interface ControllerOptions {
 export function createController({
   width,
   height,
+  initialPowered,
   onDiscoverUnlisted,
 }: ControllerOptions): TVController {
   const manager = new ChannelManager({ width, height });
-  const store = new TVStore(CHANNEL_TABLE.map((channel) => ({ ...channel })));
+  const store = new TVStore(CHANNEL_TABLE.map((channel) => ({ ...channel })), { initialPowered });
 
   manager.register(createSignalChannel());
   manager.register(createOperatorChannel());

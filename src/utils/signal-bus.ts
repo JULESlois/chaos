@@ -19,6 +19,10 @@ export interface SignalEventMap {
   'audio:play': { cue: string };
   /** Hidden narrative progression. */
   'narrative:unlock': { key: string };
+  /** Trigger full-screen CRT power off animation */
+  'scene:crt-power-off': undefined;
+  /** Trigger full-screen CRT power on animation */
+  'scene:crt-power-on': undefined;
 }
 
 export type SignalEventName = keyof SignalEventMap;

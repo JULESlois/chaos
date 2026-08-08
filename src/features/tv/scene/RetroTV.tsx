@@ -73,7 +73,7 @@ export function RetroTV({
   const grilleSlats = useMemo(() => [0.84, 0.9, 0.96, 1.02, 1.08], []);
 
   return (
-    <group name="retro-tv">
+    <group name="retro-tv" rotation={[0.025, -0.15, -0.015]}>
       {/* Cabinet: front face lands on z = 0.30. */}
       <mesh
         position={[0, 1.4, -0.2]}

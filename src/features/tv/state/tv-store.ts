@@ -46,11 +46,12 @@ export class TVStore {
   private channels: ChannelDescriptor[];
   private snapshot: TVSnapshot;
 
-  constructor(channels: ChannelDescriptor[]) {
+  constructor(channels: ChannelDescriptor[], options: { initialPowered?: boolean } = {}) {
     if (channels.length === 0) {
       throw new Error('TVStore requires at least one channel');
     }
     this.channels = channels;
+    this.powered = options.initialPowered ?? true;
     this.snapshot = this.buildSnapshot();
   }
 
@@ -320,6 +321,33 @@ export class TVStore {
     signalBus.emit('tv:power', { on });
     signalBus.emit('audio:play', { cue: on ? 'power-on' : 'power-off' });
     this.publish();
+  }
+
+  /**
+   * Smooth boot sequence:
+   * Starts with powered on + snow transition phase (full screen noise/flicker),
+   * then transitions to idle so content expands/settles gracefully.
+   */
+  bootPowerOnSequence(): void {
+    this.clearTimers();
+    this.switching = true;
+    this.powered = true;
+    this.transitionPhase = 'snow';
+    this.dispatch({ type: 'power-on' });
+    signalBus.emit('tv:power', { on: true });
+    signalBus.emit('audio:play', { cue: 'power-on' });
+    this.publish();
+
+    this.schedule(() => {
+      this.transitionPhase = 'expand';
+      this.publish();
+    }, 200);
+
+    this.schedule(() => {
+      this.transitionPhase = 'idle';
+      this.switching = false;
+      this.publish();
+    }, 450);
   }
 
   /** Jumps directly to a channel id, used by the hidden narrative triggers. */

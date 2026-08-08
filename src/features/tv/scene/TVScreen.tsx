@@ -236,7 +236,7 @@ export function TVScreen({
     // Brightness follows power, with the transition phases dimming briefly.
     let brightnessTarget = powered ? 1 : 0;
     if (transitionPhase === 'compress') brightnessTarget *= 1.25;
-    if (transitionPhase === 'snow') brightnessTarget *= 0.8;
+    if (transitionPhase === 'snow') brightnessTarget *= 1.1;
     material.uniforms.uBrightness.value +=
       (brightnessTarget - material.uniforms.uBrightness.value) *
       (1 - Math.exp(-12 * delta));
@@ -245,6 +245,9 @@ export function TVScreen({
     if (transitionPhase === 'displace') {
       tearRef.current = Math.max(tearRef.current, 0.05);
       tearYRef.current = 0.5;
+    } else if (transitionPhase === 'snow') {
+      tearRef.current = Math.max(tearRef.current, 0.02);
+      tearYRef.current = Math.random();
     }
     tearRef.current *= Math.exp(-6 * delta);
     if (tearRef.current < 0.0005) tearRef.current = 0;

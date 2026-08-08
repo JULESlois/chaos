@@ -38,11 +38,12 @@ const SCROLL_DRIVEN: ReadonlySet<TVState> = new Set<TVState>([
 export function tvReducer(state: TVState, event: TVEvent): TVState {
   switch (event.type) {
     case 'scroll': {
-      // While switching or powered off, scroll must not yank the state away.
-      if (state === 'switching' || state === 'powered-off') return state;
+      if (state === 'switching' || state === 'powered-off') {
+        return state;
+      }
+      const next = phaseForProgress(event.progress);
       if (!SCROLL_DRIVEN.has(state)) return state;
 
-      const next = phaseForProgress(event.progress);
       if (next === state) return state;
 
       // Moving backwards from interactive passes through the same phases.
