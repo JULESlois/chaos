@@ -5,6 +5,7 @@ import { createOperatorChannel } from '../channels/operator-channel';
 import { createRecordsChannel } from '../channels/records-channel';
 import { createSelfImageChannel } from '../channels/self-image-channel';
 import { createSignalChannel } from '../channels/signal-channel';
+import { createStaticChannel } from '../channels/static-channel';
 import { createUnlistedChannel } from '../channels/unlisted-channel';
 import { TVStore, type ChannelDescriptor } from '../state/tv-store';
 import type { TVSnapshot } from '../types';
@@ -22,6 +23,7 @@ export const CHANNEL_TABLE: readonly ChannelDescriptor[] = [
   { id: 'ch-02', label: 'CH-02 · RECORDS' },
   { id: 'ch-03', label: 'CH-03 · CONTACT' },
   { id: 'ch-04', label: 'CH-04 · SELF IMAGE' },
+  { id: 'ch-05', label: 'CH-05 · STATIC' },
   { id: 'ch-unlisted', label: 'CH-?? · UNLISTED', unlisted: true },
 ];
 
@@ -52,6 +54,7 @@ export function createController({
   manager.register(createRecordsChannel());
   manager.register(createContactChannel());
   manager.register(createSelfImageChannel());
+  manager.register(createStaticChannel());
   manager.register(
     createUnlistedChannel(() => {
       store.unlockUnlisted();

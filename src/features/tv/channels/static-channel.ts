@@ -3,11 +3,12 @@ import { applyChannelFont } from './channel-text';
 import { CHANNEL_PALETTE, clearFrame, drawScanlines, type ChannelContext, type TVChannel } from './channel-types';
 
 /**
- * CH-00 · STATIC — the channel that carries nothing.
+ * CH-05 · STATIC — the channel that carries nothing.
  *
- * It is the default because the receiver should not greet anyone. Whatever
- * is legible here surfaces out of the noise on its own and sinks back; there
- * is no text layer, only pixels that happen to line up for a second.
+ * It is the last listed channel before the unlisted one: the receiver ends
+ * its rotation in a place that greets no one. Whatever is legible here
+ * surfaces out of the noise on its own and sinks back; there is no text
+ * layer, only pixels that happen to line up for a second.
  */
 
 const SURFACE_PERIOD = 9.5;
@@ -22,8 +23,8 @@ export function createStaticChannel(): TVChannel {
   let frame = 0;
 
   return {
-    id: 'ch-00',
-    label: 'CH-00 · STATIC',
+    id: 'ch-05',
+    label: 'CH-05 · STATIC',
     fps: 24,
 
     enter() {
